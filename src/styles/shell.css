@@ -1,0 +1,61 @@
+.shell { min-height: 100dvh; }
+.skip-link { position: fixed; left: 12px; top: -60px; z-index: 100; background: var(--accent); color: #fff; padding: 10px 16px; border-radius: var(--r-pill); transition: top var(--dur) var(--ease-out); }
+.skip-link:focus { top: 12px; }
+
+.main { min-height: 100dvh; padding: var(--s6) var(--s5) calc(var(--bottom-nav-h) + var(--safe-b) + var(--s8)); }
+.page { max-width: 1080px; margin: 0 auto; }
+.main:focus { outline: none; }
+
+/* Sidebar hidden on phone */
+.sidebar { display: none; }
+
+/* Bottom nav (phone) */
+.bottom-nav {
+  position: fixed; z-index: 50; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  height: calc(var(--bottom-nav-h) + var(--safe-b)); padding: 6px 6px var(--safe-b);
+  background: rgba(14, 14, 18, 0.82); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-top: 1px solid var(--line);
+}
+.tab-link { display: grid; place-items: center; align-content: center; gap: 3px; border-radius: var(--r-md); color: var(--text-3); font-size: 11px; font-weight: 550; transition: color var(--dur), transform var(--dur-fast) var(--ease-out); }
+.tab-link svg { width: 24px; height: 24px; transition: transform var(--dur) var(--spring); }
+.tab-link:active { transform: scale(0.94); }
+.tab-link.active, .tab-link[data-active='true'] { color: var(--accent-lavender); }
+.tab-link.active svg { transform: translateY(-1px) scale(1.06); }
+
+.more-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); padding-top: var(--s2); }
+.more-item { display: grid; justify-items: center; gap: var(--s2); padding: var(--s3) 0; border-radius: var(--r-md); font-size: var(--fs-small); color: var(--text-2); transition: background var(--dur), transform var(--dur-fast) var(--ease-out); }
+.more-item:hover { background: var(--surface-3); color: var(--text); }
+.more-item:active { transform: scale(0.95); }
+
+/* Tablet: icon rail */
+@media (min-width: 768px) {
+  .main { padding: var(--s10) var(--s8) var(--s12); margin-left: var(--rail-w); }
+  .bottom-nav { display: none; }
+  .toasts { bottom: 24px; }
+  .sidebar { display: flex; flex-direction: column; gap: var(--s5); position: fixed; inset: 0 auto 0 0; width: var(--rail-w); padding: var(--s5) var(--s3); border-right: 1px solid var(--line); background: var(--bg); overflow-y: auto; align-items: stretch; z-index: 20; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 4px 0; }
+  .brand-name, .side-label, .side-group-label { display: none; }
+  .side-capture { padding: 0; width: 100%; }
+  .side-nav { display: grid; gap: var(--s5); }
+  .side-group { display: grid; gap: 2px; }
+  .side-group + .side-group { padding-top: var(--s4); border-top: 1px solid var(--line); }
+  .side-link { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; border-radius: var(--r-md); color: var(--text-2); font-weight: 520; transition: background var(--dur) var(--ease-out), color var(--dur); }
+  .side-link svg { width: 20px; height: 20px; flex: none; transition: transform var(--dur) var(--spring); }
+  .side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link:active svg { transform: scale(0.9); }
+  .side-link.active { background: var(--accent-soft); color: var(--accent-lavender); }
+  .side-link.active::before { content: ''; position: absolute; left: -12px; top: 11px; bottom: 11px; width: 3px; border-radius: 3px; background: var(--accent); }
+}
+
+/* Desktop: full sidebar */
+@media (min-width: 1024px) {
+  .main { margin-left: var(--sidebar-w); padding: var(--s12) var(--s12) var(--s12); }
+  .sidebar { width: var(--sidebar-w); padding: var(--s6) var(--s4); }
+  .brand { justify-content: flex-start; padding: 4px var(--s3) var(--s2); }
+  .brand-name { display: block; font-size: var(--fs-lead); font-weight: 650; letter-spacing: -0.02em; }
+  .side-label { display: inline; }
+  .side-group-label { display: block; padding: 0 var(--s3) var(--s2); }
+  .side-capture { padding: 0 var(--s5); }
+  .side-link { justify-content: flex-start; padding: 0 var(--s3); }
+}
