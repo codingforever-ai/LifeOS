@@ -1,25 +1,17 @@
 import type { DomainDef } from './types';
 
 /**
- * Domain registry. A future domain is added by appending one entry here
- * (and later registering its routes/modules) — the shell does not change.
+ * Domain registry. All domains share the Core (tasks, goals, projects, milestones, deadlines, calendar, focus,
+ * progress, Agent). Each adds its OWN screens/metrics/terminology under its route. A new domain = one entry here,
+ * one overview function in server/domains.mjs and one page in features/domains.
  */
 export const DOMAINS: DomainDef[] = [
-  { id: 'personal', name: 'Personal', blurb: 'Everyday life and admin', icon: 'user', tone: 'purple', status: 'core' },
-  { id: 'work', name: 'Work', blurb: 'Projects, meetings, output', icon: 'briefcase', tone: 'royal', status: 'core' },
-  { id: 'academic', name: 'Academic', blurb: 'Courses, assignments, exams', icon: 'graduation', tone: 'lavender', status: 'planned' },
-  { id: 'study', name: 'Study', blurb: 'Deep study and revision', icon: 'book', tone: 'plum', status: 'planned' },
-  { id: 'wellness', name: 'Wellness', blurb: 'Sleep, mind, recovery', icon: 'leaf', tone: 'mist', status: 'planned' },
-  { id: 'nutrition', name: 'Nutrition', blurb: 'Meals and habits of eating', icon: 'apple', tone: 'sand', status: 'planned' },
-  { id: 'fitness', name: 'Fitness', blurb: 'Training and movement', icon: 'dumbbell', tone: 'slate', status: 'planned' },
-  { id: 'finance', name: 'Finance', blurb: 'Spending, saving, planning', icon: 'wallet', tone: 'graphite', status: 'planned' },
-  { id: 'learning', name: 'Learning', blurb: 'Skills and curiosity', icon: 'sparkle', tone: 'purple', status: 'planned' },
-  { id: 'home', name: 'Home', blurb: 'Household and upkeep', icon: 'home', tone: 'slate', status: 'planned' },
-  { id: 'travel', name: 'Travel', blurb: 'Trips and itineraries', icon: 'plane', tone: 'mist', status: 'planned' },
-  { id: 'creativity', name: 'Creativity', blurb: 'Making and ideas', icon: 'palette', tone: 'plum', status: 'planned' },
-  { id: 'relationships', name: 'Relationships', blurb: 'People who matter', icon: 'users', tone: 'lavender', status: 'planned' },
-  { id: 'business', name: 'Business', blurb: 'Ventures and operations', icon: 'building', tone: 'graphite', status: 'planned' },
-  { id: 'research', name: 'Research', blurb: 'Questions and sources', icon: 'flask', tone: 'royal', status: 'planned' },
+  { id: 'academic', name: 'Academic', blurb: 'Subjects, exams, assignments', icon: 'graduation', tone: 'lavender', path: '/academic' },
+  { id: 'study', name: 'Study', blurb: 'Chapters, practice, revision', icon: 'book', tone: 'plum', path: '/study' },
+  { id: 'work', name: 'Work', blurb: 'Clients, deliverables, outcomes', icon: 'briefcase', tone: 'royal', path: '/work' },
+  { id: 'fitness', name: 'Fitness', blurb: 'Programs, workouts, recovery', icon: 'dumbbell', tone: 'slate', path: '/fitness' },
+  { id: 'finance', name: 'Finance', blurb: 'Commitments, saving, planning', icon: 'wallet', tone: 'sand', path: '/finance' },
+  { id: 'personal', name: 'Personal', blurb: 'Errands, home, relationships', icon: 'home', tone: 'purple', path: '/personal' },
 ];
-
-export const domainName = (id: string) => DOMAINS.find((d) => d.id === id)?.name ?? id;
+export const domainName = (id: string | null | undefined) => DOMAINS.find((d) => d.id === id)?.name ?? (id ? id[0].toUpperCase() + id.slice(1) : 'Unassigned');
+export const DOMAIN_OPTIONS = DOMAINS.map((d) => ({ value: d.id, label: d.name }));

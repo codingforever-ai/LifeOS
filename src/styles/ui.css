@@ -1,25 +1,31 @@
-/* ---------- Bubble icon ---------- */
+/* ---------- Tactile icon tile (Bubble) — driven by tokens.css ---------- */
 .bubble {
   --b-hi: #b9a3ff; --b-mid: #7c4ff0; --b-lo: #4a22b0; --b-glow: rgba(124, 79, 240, 0.55);
-  flex: none;
+  position: relative; flex: none;
   display: inline-grid; place-items: center;
-  width: var(--bs, 40px); height: var(--bs, 40px);
-  border-radius: 34%;
+  width: var(--bs, var(--tile-md)); height: var(--bs, var(--tile-md));
+  border-radius: var(--tile-radius);
   color: #fff;
   background:
-    radial-gradient(120% 90% at 28% 8%, rgba(255, 255, 255, 0.34), transparent 46%),
+    radial-gradient(120% 90% at var(--tile-light), var(--tile-highlight), transparent 46%),
     linear-gradient(160deg, var(--b-hi) -20%, var(--b-mid) 45%, var(--b-lo) 110%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -7px 12px -4px rgba(0, 0, 0, 0.35),
-    0 8px 16px -9px var(--b-glow);
-  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+    inset 0 1px 0 var(--tile-rim),
+    inset 0 -7px 12px -4px var(--tile-shade),
+    0 var(--tile-shadow-y) 16px -9px color-mix(in srgb, var(--b-glow) calc(var(--tile-intensity) * 100%), transparent);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), filter var(--dur) var(--ease-out);
 }
 .bubble svg { width: 52%; height: 52%; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3)); }
-.bubble[data-size='sm'] { --bs: 30px; }
-.bubble[data-size='md'] { --bs: 40px; }
-.bubble[data-size='lg'] { --bs: 52px; }
-.bubble[data-size='xl'] { --bs: 68px; }
+.bubble[data-interactive] { cursor: pointer; }
+.bubble[data-interactive]:hover { transform: translateY(var(--tile-hover-lift)); filter: brightness(1.06); }
+.bubble[data-interactive]:active { transform: scale(var(--tile-pressed-scale)); }
+.bubble[data-disabled] { opacity: var(--tile-disabled-opacity); filter: saturate(0.5); pointer-events: none; }
+.bubble[data-size='xs'] { --bs: 24px; }
+.bubble[data-size='sm'] { --bs: var(--tile-sm); }
+.bubble[data-size='md'] { --bs: var(--tile-md); }
+.bubble[data-size='lg'] { --bs: var(--tile-lg); }
+.bubble[data-size='xl'] { --bs: var(--tile-xl); }
+.tile-badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font-size: 11px; font-weight: 650; background: var(--surface-1); color: var(--accent-lavender); border: 1.5px solid var(--accent-line); }
 .bubble[data-tone='royal'] { --b-hi: #9c8cff; --b-mid: #5a3ad6; --b-lo: #2e1a86; --b-glow: rgba(90, 58, 214, 0.5); }
 .bubble[data-tone='lavender'] { --b-hi: #e4dcff; --b-mid: #a995ee; --b-lo: #6a56b8; --b-glow: rgba(169, 149, 238, 0.4); color: #231a4d; }
 .bubble[data-tone='plum'] { --b-hi: #c9a0e8; --b-mid: #8d4fb8; --b-lo: #4d2270; --b-glow: rgba(141, 79, 184, 0.45); }

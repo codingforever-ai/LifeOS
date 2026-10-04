@@ -62,3 +62,19 @@
   --bottom-nav-h: 68px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
+
+/* ---------- Tactile icon system tokens (single place to tune every icon tile) ---------- */
+:root {
+  --icon-xs: 14px; --icon-sm: 16px; --icon-md: 20px; --icon-lg: 24px; --icon-xl: 28px;
+  --tile-sm: 30px; --tile-md: 40px; --tile-lg: 52px; --tile-xl: 68px;
+  --tile-radius: 32%;              /* one corner radius for every tile */
+  --tile-light: 28% 8%;            /* consistent light direction: top-left */
+  --tile-highlight: rgba(255, 255, 255, 0.3);
+  --tile-rim: rgba(255, 255, 255, 0.36);
+  --tile-shade: rgba(0, 0, 0, 0.34);
+  --tile-shadow-y: 7px;
+  --tile-intensity: 1;             /* 0..1 — scales glow; set lower for compact density / light mode */
+  --tile-hover-lift: -2px;
+  --tile-pressed-scale: 0.94;
+  --tile-disabled-opacity: 0.45;
+}

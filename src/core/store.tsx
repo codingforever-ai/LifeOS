@@ -1,55 +1,66 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Goal, Project, Task } from './types';
-import { demoGoals, demoProjects, demoTasks } from '../data/demo';
+import { api, ApiError } from '../api/client';
+import type { Deadline, Goal, Milestone, Progress, Project, Task } from './types';
+import { useToast } from '../ui/overlay';
 
 /**
- * Single in-memory Core store (Phase 1). The shape — tasks, goals, projects plus a
- * load status — is what a real data layer will provide later; consumers don't change.
- *
- * Preview helper: append ?state=loading | error | empty to /tasks to see those states.
+ * Core store: the user's goals/projects/milestones/open tasks/deadlines from the server, plus a global `version`.
+ * Every mutation calls `bump()`, which refetches this store AND every useApi() consumer — so completing a task updates
+ * Milestone → Project → Goal → Progress → Today → Timeline without any stale state.
  */
 type Status = 'loading' | 'ready' | 'error';
-
 interface CoreValue {
-  status: Status;
-  tasks: Task[];
-  goals: Goal[];
-  projects: Project[];
-  toggleTask: (id: string) => void;
-  addTask: (title: string, extra?: Partial<Task>) => void;
-  reload: () => void;
+  status: Status; error: string | null; version: number;
+  tasks: Task[]; goals: Goal[]; projects: Project[]; milestones: Milestone[]; deadlines: Deadline[]; progress: Progress;
+  reload: () => void; bump: () => void;
+  /** Run a mutation: toasts the outcome, refreshes everything, returns the result (undefined on failure). */
+  run: <T>(fn: () => Promise<T>, success?: string) => Promise<T | undefined>;
 }
-
+const EMPTY: Progress = { goals: {}, projects: {}, milestones: {} };
 const Ctx = createContext<CoreValue | null>(null);
 
 export function CoreProvider({ children }: { children: ReactNode }) {
-  const forced = new URLSearchParams(window.location.search).get('state');
+  const toast = useToast();
+  const [data, setData] = useState<{ tasks: Task[]; goals: Goal[]; projects: Project[]; milestones: Milestone[]; deadlines: Deadline[]; progress: Progress }>({ tasks: [], goals: [], projects: [], milestones: [], deadlines: [], progress: EMPTY });
   const [status, setStatus] = useState<Status>('loading');
-  const [tasks, setTasks] = useState<Task[]>(forced === 'empty' ? [] : demoTasks);
-  const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const first = useRef(true);
 
   useEffect(() => {
-    setStatus('loading');
-    const t = setTimeout(() => setStatus(forced === 'error' && attempt === 0 ? 'error' : 'ready'), 450);
-    return () => clearTimeout(t);
-  }, [attempt, forced]);
+    let live = true;
+    if (first.current) setStatus('loading');
+    api.get<typeof data & { user: unknown }>('/bootstrap')
+      .then((d) => { if (!live) return; setData({ tasks: d.tasks, goals: d.goals, projects: d.projects, milestones: d.milestones, deadlines: d.deadlines, progress: d.progress }); setStatus('ready'); setError(null); first.current = false; })
+      .catch((e: ApiError) => { if (!live) return; setError(e.message); if (first.current) setStatus('error'); });
+    return () => { live = false; };
+  }, [version]);
 
-  const toggleTask = useCallback((id: string) => setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t))), []);
-  const addTask = useCallback((title: string, extra: Partial<Task> = {}) => {
-    setTasks((ts) => [{ id: `t${Date.now()}`, title, domain: 'personal', priority: 'medium', done: false, ...extra }, ...ts]);
-  }, []);
-  const reload = useCallback(() => setAttempt((a) => a + 1), []);
+  const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const run = useCallback(async <T,>(fn: () => Promise<T>, success?: string) => {
+    try { const r = await fn(); if (success) toast(success); bump(); return r; }
+    catch (e) { toast(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'); return undefined; }
+  }, [toast, bump]);
 
-  const value = useMemo(
-    () => ({ status, tasks, goals: demoGoals, projects: demoProjects, toggleTask, addTask, reload }),
-    [status, tasks, toggleTask, addTask, reload],
-  );
+  const value = useMemo<CoreValue>(() => ({ status, error, version, ...data, reload: bump, bump, run }), [status, error, version, data, bump, run]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+export function useCore() { const v = useContext(Ctx); if (!v) throw new Error('useCore must be used inside CoreProvider'); return v; }
 
-export function useCore() {
-  const v = useContext(Ctx);
-  if (!v) throw new Error('useCore must be used inside CoreProvider');
-  return v;
+/** Fetch a server resource; refetches whenever any mutation bumps the global version. */
+export function useApi<T>(path: string | null, deps: unknown[] = []) {
+  const { version } = useCore();
+  const [state, setState] = useState<{ data: T | null; loading: boolean; error: string | null }>({ data: null, loading: !!path, error: null });
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!path) { setState({ data: null, loading: false, error: null }); return; }
+    let live = true;
+    setState((s) => ({ ...s, loading: s.data === null, error: null }));
+    api.get<T>(path).then((d) => live && setState({ data: d, loading: false, error: null })).catch((e: ApiError) => live && setState((s) => ({ data: s.data, loading: false, error: e.message })));
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, version, tick, ...deps]);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
+  return { ...state, reload };
 }
