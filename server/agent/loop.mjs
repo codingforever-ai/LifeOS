@@ -112,7 +112,7 @@ export async function runAgent({ user, conversationId, message, emit, signal }) 
           result = { error: e.message, fields: e.fields };
           step(`${tool?.name ?? c.name} failed: ${e.message}`, 'failed');
         }
-        messages.push({ role: 'tool', tool_call_id: c.id, content: trunc(JSON.stringify(result), 12000) });
+        messages.push({ role: 'tool', tool_call_id: c.id, content: trunc(JSON.stringify(result), 5000) });
       }
       if (i === MAX_STEPS - 1) finalText = '';
     }
