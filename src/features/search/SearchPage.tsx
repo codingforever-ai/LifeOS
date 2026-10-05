@@ -82,12 +82,12 @@ export default function SearchPage() {
         <>
           {data.groups.map((g) => g.items.length > 0 && (
             <Section key={g.entity} title={`${g.label} (${g.total})`}>
-              <Surface pad="none"><ul className="list divided">
+              <Surface pad="none"><ul className="list divided search-results">
                 {g.items.slice(0, 5).map((item) => {
                   const idx = runningIndex++;
                   const isActive = idx === activeIndex;
                   return (
-                    <li key={item.id} ref={isActive ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}>
+                    <li key={item.id} className="search-result" ref={isActive ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}>
                       <Row
                         leading={<BubbleIcon name={(ENTITY_ICON[item.entity] ?? 'search') as any} tone="graphite" size="sm" />}
                         title={item.title}

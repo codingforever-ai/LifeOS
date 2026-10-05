@@ -1,0 +1,499 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LifeOS Motion System
+   ───────────────────────────────────────────────────────────────────
+   Philosophy: Motion communicates information. Every animation has a
+   purpose — spatial continuity, state change, hierarchy, feedback.
+
+   Principles:
+   - Transform + opacity only (GPU-friendly, no layout thrash)
+   - Spatial continuity over generic fades
+   - Physics over linear motion
+   - Contextual over decorative
+   - Reduced-motion preserves hierarchy & feedback, drops movement
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Extended motion tokens ── */
+:root {
+  --dur-page: 320ms;
+  --dur-reveal: 420ms;
+  --dur-ambient: 8s;
+  --dur-ambient-slow: 16s;
+  --ease-spatial: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   1. SPATIAL PAGE TRANSITIONS
+   Navigation preserves spatial continuity — pages enter from the
+   direction of travel through the information space.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes lo-page-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes lo-page-enter-left { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes lo-page-enter-right { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+/* The .page container gets a directional enter based on data-anim */
+.page[data-anim='forward'] { animation: lo-page-enter-right var(--dur-page) var(--ease-entrance) both; }
+.page[data-anim='back'] { animation: lo-page-enter-left var(--dur-page) var(--ease-entrance) both; }
+.page[data-anim='up'] { animation: lo-page-enter var(--dur-page) var(--ease-entrance) both; }
+.page[data-anim='default'] { animation: lo-page-enter var(--dur-page) var(--ease-entrance) both; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. SCROLL REVEAL
+   Elements emerge as they enter the viewport — content arrives,
+   it doesn't just appear. Uses IntersectionObserver via hooks.
+   ═══════════════════════════════════════════════════════════════════ */
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--dur-reveal) var(--ease-entrance), transform var(--dur-reveal) var(--ease-entrance);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+[data-reveal='visible'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Reveal variants — different spatial character */
+[data-reveal='slide-right'] { transform: translateX(-20px); }
+[data-reveal='slide-left'] { transform: translateX(20px); }
+[data-reveal='scale'] { transform: scale(0.96); }
+[data-reveal='slide-right'][data-reveal-state='visible'],
+[data-reveal='slide-left'][data-reveal-state='visible'],
+[data-reveal='scale'][data-reveal-state='visible'] { transform: none; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. INTELLIGENT STAGGER
+   Extended from base.css — more steps, smarter timing.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stagger > * { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+.stagger > *:nth-child(7) { animation-delay: 300ms; }
+.stagger > *:nth-child(8) { animation-delay: 340ms; }
+.stagger > *:nth-child(n+9) { animation-delay: 380ms; }
+
+/* Dense stagger — for lists with many items, tighter timing */
+.stagger-dense > * { animation: lo-fade-up 180ms var(--ease-entrance) both; }
+.stagger-dense > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-dense > *:nth-child(2) { animation-delay: 30ms; }
+.stagger-dense > *:nth-child(3) { animation-delay: 60ms; }
+.stagger-dense > *:nth-child(4) { animation-delay: 90ms; }
+.stagger-dense > *:nth-child(n+5) { animation-delay: 110ms; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. STATE TRANSITIONS
+   Loading → Reasoning / Formation. Success → Refined completion.
+   Error → Calm recovery.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Loading — temporal pulse, not a spinner */
+@keyframes lo-temporal { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+.skeleton-temporal { border-radius: var(--r-md); background: var(--surface-2); animation: lo-temporal 2.4s var(--ease-in-out) infinite; }
+
+/* Data formation — for charts/progress loading */
+@keyframes lo-form { from { opacity: 0; transform: scaleY(0.3); transform-origin: bottom; } to { opacity: 1; transform: none; } }
+.data-forming > * { animation: lo-form var(--dur-slow) var(--ease-entrance) both; }
+.data-forming > *:nth-child(2) { animation-delay: 60ms; }
+.data-forming > *:nth-child(3) { animation-delay: 120ms; }
+.data-forming > *:nth-child(4) { animation-delay: 180ms; }
+.data-forming > *:nth-child(n+5) { animation-delay: 220ms; }
+
+/* Success — refined, not celebratory */
+@keyframes lo-success { 0% { opacity: 0; transform: scale(0.92); } 60% { opacity: 1; transform: scale(1.01); } 100% { transform: none; } }
+.success-enter { animation: lo-success var(--dur-slow) var(--ease-entrance) both; }
+
+/* Error — calm, clear */
+@keyframes lo-error { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.error-enter { animation: lo-error var(--dur) var(--ease-out) both; }
+
+/* Completion ripple — for task completion */
+@keyframes lo-complete { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.check[aria-checked='true'] { animation: lo-complete 320ms var(--spring); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   5. MICRO-INTERACTION ENHANCEMENTS
+   Polished feedback on meaningful interactions.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Button press — physical depth */
+.btn { transition: transform var(--dur-fast) var(--ease-out), background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), opacity var(--dur), box-shadow var(--dur-fast) var(--ease-out); }
+.btn:active:not(:disabled) { transform: scale(0.96); }
+
+/* Row press — tactile */
+.row { transition: background var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out), opacity var(--dur) var(--ease-out); }
+
+/* Surface hover — subtle lift */
+.surface[data-hover] { transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) var(--ease-out); }
+.surface[data-hover]:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+/* Tab indicator — sliding pill */
+.tabs { position: relative; }
+.tab { transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out); }
+
+/* Checkbox — spring completion */
+.check { transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--spring); }
+.check svg { transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--spring); }
+.check:not([aria-checked='true']) svg { opacity: 0; transform: scale(0.5); }
+.check[aria-checked='true'] svg { opacity: 1; transform: none; }
+
+/* Switch — spring slide */
+.switch::after { transition: transform var(--dur) var(--spring); }
+
+/* Progress bar — smooth fill */
+.bar > span { transition: width var(--dur-slow) var(--ease-spatial); }
+.ring .fill { transition: stroke-dashoffset var(--dur-slow) var(--ease-spatial); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. AMBIENT MOTION
+   Subtle, slow, contextual environmental life on key pages.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes lo-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.8; } }
+@keyframes lo-drift { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(4px, -3px); } }
+
+/* Ambient glow — for accent surfaces, very subtle */
+.ambient-glow { animation: lo-breathe var(--dur-ambient) var(--ease-in-out) infinite; }
+.ambient-drift { animation: lo-drift var(--dur-ambient-slow) var(--ease-in-out) infinite; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. PAGE-SPECIFIC MOTION IDENTITIES
+   Each major page has its own motion character — distinct but
+   consistent with the shared philosophy.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Today: LIFE IN MOTION ──
+   Subtle contextual movement — day state, schedule, progress.
+   The page breathes with the time of day. */
+
+.today-hero { animation: lo-fade-up var(--dur-page) var(--ease-entrance) both; }
+.today-capture { animation: lo-fade-up var(--dur-page) var(--ease-entrance) both; animation-delay: 60ms; }
+.today-actions { animation: lo-fade-up var(--dur-page) var(--ease-entrance) both; animation-delay: 100ms; }
+.today-grid { animation: lo-fade var(--dur-page) var(--ease-out) both; animation-delay: 120ms; }
+
+/* Now card — gentle ambient pulse, the "heartbeat" of today */
+.now-card { animation: lo-fade-up var(--dur-page) var(--ease-entrance) both; }
+.now-card .caption { animation: lo-breathe 6s var(--ease-in-out) infinite; }
+
+/* Schedule timeline — current event indicator */
+.timeline li[data-now='true'] { position: relative; }
+.timeline li[data-now='true']::before {
+  content: ''; position: absolute; left: -2px; top: 0; bottom: 0; width: 2px;
+  background: var(--accent); border-radius: 2px;
+  animation: lo-breathe 3s var(--ease-in-out) infinite;
+}
+
+/* Running focus card — living indicator */
+.running-card { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.running-card .bubble { animation: lo-breathe 4s var(--ease-in-out) infinite; }
+
+/* ── Tasks: FLOW / MOMENTUM ──
+   Physical completion, spatial reordering, creation materialization. */
+
+/* Task completion — physical settle */
+@keyframes lo-task-complete { 0% { opacity: 1; } 30% { opacity: 0.5; transform: translateX(4px); } 100% { opacity: 1; transform: none; } }
+.task-row[data-done='true'] { animation: lo-task-complete 400ms var(--ease-spatial) both; }
+
+/* Quick add — materialization from input */
+@keyframes lo-materialize { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.quick-add { animation: lo-materialize var(--dur) var(--ease-entrance) both; }
+
+/* Task list — momentum enter */
+.tasks-surface .list > li { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.tasks-surface .list > li:nth-child(1) { animation-delay: 0ms; }
+.tasks-surface .list > li:nth-child(2) { animation-delay: 35ms; }
+.tasks-surface .list > li:nth-child(3) { animation-delay: 70ms; }
+.tasks-surface .list > li:nth-child(4) { animation-delay: 105ms; }
+.tasks-surface .list > li:nth-child(n+5) { animation-delay: 130ms; }
+
+/* Overdue — subtle attention, not alarming */
+@keyframes lo-attention { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+.today-deadline[data-overdue='true'] .row-title { animation: lo-attention 4s var(--ease-in-out) infinite; }
+
+/* ── Calendar: TIME ──
+   Spatial continuity for view changes — moving through time. */
+
+@keyframes lo-cal-forward { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes lo-cal-back { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+
+.cal-grid[data-dir='forward'] { animation: lo-cal-forward var(--dur) var(--ease-entrance) both; }
+.cal-grid[data-dir='back'] { animation: lo-cal-back var(--dur) var(--ease-entrance) both; }
+.cal-week[data-dir='forward'] { animation: lo-cal-forward var(--dur) var(--ease-entrance) both; }
+.cal-week[data-dir='back'] { animation: lo-cal-back var(--dur) var(--ease-entrance) both; }
+.cal-day-view[data-dir='forward'] { animation: lo-cal-forward var(--dur) var(--ease-entrance) both; }
+.cal-day-view[data-dir='back'] { animation: lo-cal-back var(--dur) var(--ease-entrance) both; }
+.cal-agenda[data-dir='forward'] { animation: lo-cal-forward var(--dur) var(--ease-entrance) both; }
+.cal-agenda[data-dir='back'] { animation: lo-cal-back var(--dur) var(--ease-entrance) both; }
+
+/* Calendar cell — today indicator pulse */
+.cal-cell[data-today='true'] .cal-num { position: relative; }
+.cal-cell[data-today='true'] .cal-num::after {
+  content: ''; position: absolute; inset: -2px; border-radius: 50%;
+  border: 1.5px solid var(--accent-line); opacity: 0;
+  animation: lo-breathe 4s var(--ease-in-out) infinite;
+}
+
+/* Selected day — smooth settle */
+.cal-cell[data-selected='true'] { animation: lo-pop-in 200ms var(--ease-out) both; }
+
+/* ── Focus: IMMERSION ──
+   Entering Focus transforms the interface. */
+
+@keyframes lo-focus-enter { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+.focus-fullscreen { animation: lo-focus-enter var(--dur-slow) var(--ease-entrance) both; }
+
+/* Focus ring — ambient breathing, the session is alive */
+.focus-ring .ring .fill { animation: lo-breathe 6s var(--ease-in-out) infinite; }
+.focus-time { animation: lo-fade var(--dur) var(--ease-out) both; }
+
+/* Focus context — emerges */
+.focus-context { animation: lo-fade-up var(--dur-slow) var(--ease-entrance) both; }
+
+/* Focus exit — retreat */
+@keyframes lo-retreat { to { opacity: 0; transform: scale(1.02); } }
+
+/* ── Progress: DATA BECOMING MEANING ──
+   Charts emerge, interpolate, reveal relationships. */
+
+@keyframes lo-chart-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes lo-line-draw { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+
+.chart svg .bar-done { transform-origin: bottom; animation: lo-chart-rise var(--dur-slow) var(--ease-spatial) both; }
+.chart svg .bar-done:nth-child(odd) { animation-delay: 40ms; }
+.chart svg .bar-done:nth-child(even) { animation-delay: 80ms; }
+
+/* Consistency grid — sequential reveal */
+.consistency i { animation: lo-fade 200ms var(--ease-out) both; }
+.consistency i:nth-child(n+1) { animation-delay: 10ms; }
+.consistency i:nth-child(n+8) { animation-delay: 60ms; }
+.consistency i:nth-child(n+15) { animation-delay: 120ms; }
+.consistency i:nth-child(n+22) { animation-delay: 180ms; }
+
+/* Stats — count-up feel */
+@keyframes lo-stat-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.stats > * { animation: lo-stat-enter var(--dur) var(--ease-entrance) both; }
+.stats > *:nth-child(2) { animation-delay: 60ms; }
+.stats > *:nth-child(3) { animation-delay: 120ms; }
+.stats > *:nth-child(4) { animation-delay: 180ms; }
+
+/* ── Agent: INTELLIGENCE ──
+   READ → THINK → PLAN → EXECUTE → WAIT → CONFIRM → COMPLETE → REPORT
+   The agent is an operating intelligence, not a chatbot. */
+
+/* Agent message — intelligence arrival */
+@keyframes lo-agent-msg { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.msg.agent { animation: lo-agent-msg var(--dur) var(--ease-entrance) both; }
+
+/* Thinking — reasoning state, not a spinner */
+@keyframes lo-reason { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+.thinking i { animation: lo-reason 1.4s var(--ease-in-out) infinite; }
+.thinking i:nth-child(2) { animation-delay: 0.2s; }
+.thinking i:nth-child(3) { animation-delay: 0.4s; }
+
+/* Step line — sequential intelligence */
+@keyframes lo-step { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.step-line { animation: lo-step var(--dur) var(--ease-entrance) both; }
+.step-line:nth-child(1) { animation-delay: 0ms; }
+.step-line:nth-child(2) { animation-delay: 80ms; }
+.step-line:nth-child(3) { animation-delay: 160ms; }
+.step-line:nth-child(4) { animation-delay: 240ms; }
+.step-line:nth-child(n+5) { animation-delay: 300ms; }
+
+/* Step status transition */
+.step-line[data-status='ok'] { color: var(--ok); }
+.step-line[data-status='ok'] svg { animation: lo-success 300ms var(--ease-entrance) both; }
+
+/* Agent intro — calm intelligence */
+.agent-intro { animation: lo-fade-up var(--dur-page) var(--ease-entrance) both; }
+.agent-intro .chips .chip { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.agent-intro .chips .chip:nth-child(2) { animation-delay: 60ms; }
+.agent-intro .chips .chip:nth-child(3) { animation-delay: 120ms; }
+.agent-intro .chips .chip:nth-child(4) { animation-delay: 180ms; }
+
+/* ── Capture: THOUGHT → STRUCTURE ──
+   The raw thought enters, LifeOS transforms it. */
+
+@keyframes lo-capture-pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* Type selection — materialization */
+.type-item { transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) var(--ease-out); }
+.type-item[aria-checked='true'] { animation: lo-capture-pulse 400ms var(--ease-out) both; }
+
+/* Capture save — thought becomes structure */
+@keyframes lo-structure { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+.capture-box { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+
+/* Inbox item — arrival */
+.list > li { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+
+/* ── Goals: PROGRESSION ──
+   Progress, milestones, hierarchy, completion. */
+
+@keyframes lo-progress-fill { from { width: 0; } }
+.goal-card .bar > span { animation: lo-progress-fill var(--dur-slow) var(--ease-spatial) both; }
+
+/* Goal card — structural reveal */
+.goal-card { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.goal-list > *:nth-child(2) { animation-delay: 60ms; }
+.goal-list > *:nth-child(3) { animation-delay: 120ms; }
+.goal-list > *:nth-child(n+4) { animation-delay: 180ms; }
+
+/* Milestone — construction dot */
+@keyframes lo-milestone { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+.milestones li .m-dot { animation: lo-milestone var(--dur) var(--spring) both; }
+.milestones li:nth-child(2) .m-dot { animation-delay: 80ms; }
+.milestones li:nth-child(3) .m-dot { animation-delay: 160ms; }
+.milestones li:nth-child(n+4) .m-dot { animation-delay: 220ms; }
+
+/* ── Projects: CONSTRUCTION ──
+   Assembly, connections, structural progress. */
+
+.project-row { animation: lo-fade-up var(--dur) var(--ease-entrance) both; }
+.project-bar .bar > span { animation: lo-progress-fill var(--dur-slow) var(--ease-spatial) both; }
+
+/* ── Timeline: LIFE UNFOLDING ──
+   Continuous temporal movement, connected events. */
+
+@keyframes lo-unfold { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.tl-group { animation: lo-unfold var(--dur) var(--ease-entrance) both; }
+.tl-group:nth-child(2) { animation-delay: 60ms; }
+.tl-group:nth-child(3) { animation-delay: 120ms; }
+.tl-group:nth-child(n+4) { animation-delay: 180ms; }
+
+/* ── Decisions: REASONING ──
+   Context → Options → Choice → Reason → Outcome. */
+
+@keyframes lo-reason-step { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.decision-step { animation: lo-reason-step var(--dur) var(--ease-entrance) both; }
+.decision-step:nth-child(2) { animation-delay: 80ms; }
+.decision-step:nth-child(3) { animation-delay: 160ms; }
+.decision-step:nth-child(4) { animation-delay: 240ms; }
+.decision-step:nth-child(n+5) { animation-delay: 300ms; }
+
+/* ── Experiments: CHANGE → RESULT ── */
+
+@keyframes lo-exp-flow { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.exp-step { animation: lo-exp-flow var(--dur) var(--ease-entrance) both; }
+.exp-step:nth-child(2) { animation-delay: 60ms; }
+.exp-step:nth-child(3) { animation-delay: 120ms; }
+.exp-step:nth-child(4) { animation-delay: 180ms; }
+.exp-step:nth-child(n+5) { animation-delay: 240ms; }
+
+/* ── Accomplishments: SIGNIFICANCE ──
+   Elegant reveal, restrained celebration. */
+
+@keyframes lo-significance { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.accomplishment-item { animation: lo-significance var(--dur-reveal) var(--ease-entrance) both; }
+
+/* ── Search: DISCOVERY ──
+   Results feel discovered, not just listed. */
+
+@keyframes lo-discover { from { opacity: 0; transform: translateY(6px) scale(0.99); } to { opacity: 1; transform: none; } }
+.search-results > .search-result { animation: lo-discover var(--dur) var(--ease-entrance) both; }
+.search-results > .search-result:nth-child(2) { animation-delay: 40ms; }
+.search-results > .search-result:nth-child(3) { animation-delay: 80ms; }
+.search-results > .search-result:nth-child(4) { animation-delay: 120ms; }
+.search-results > .search-result:nth-child(n+5) { animation-delay: 160ms; }
+
+/* ── Memory: RECALL ──
+   Related memories surface, connections appear. */
+
+@keyframes lo-recall { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+.memory-card { animation: lo-recall var(--dur-reveal) var(--ease-entrance) both; }
+.memory-card:nth-child(2) { animation-delay: 80ms; }
+.memory-card:nth-child(3) { animation-delay: 160ms; }
+.memory-card:nth-child(n+4) { animation-delay: 220ms; }
+
+/* ── Compass: DIRECTION ── */
+
+@keyframes lo-orient { from { opacity: 0; transform: rotate(-2deg) scale(0.98); } to { opacity: 1; transform: none; } }
+.compass-summary { animation: lo-orient var(--dur-slow) var(--ease-entrance) both; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   8. ALERT MOTION
+   Critical: stronger. Normal: subtle. Informational: minimal.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.alert { animation: lo-fade-up var(--dur) var(--ease-out) both; }
+.alert[data-tone='warn'] { animation: lo-fade-up var(--dur) var(--ease-out) both; }
+.alert[data-tone='accent'] { animation: lo-fade var(--dur) var(--ease-out) both; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   9. NAVIGATION TRANSITIONS
+   Sidebar and bottom nav — spatial feedback for navigation.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Active nav indicator — smooth slide */
+.side-link { transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out); }
+.side-link.active::before { animation: lo-fade-up var(--dur) var(--ease-out) both; }
+
+/* Bottom nav — press feedback */
+.tab-link { transition: color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.tab-link:active { transform: scale(0.92); }
+.tab-link.active svg { animation: lo-pop-in 200ms var(--spring) both; }
+
+/* More grid — discovery */
+.more-item { transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.more-item:active { transform: scale(0.94); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   10. OVERLAY / MODAL TRANSITIONS
+   Enhanced from base.css — spatial, contextual.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Dialog — scale from center with depth */
+.overlay[data-variant='dialog'] .panel { animation: lo-pop-in 280ms var(--ease-entrance) both; }
+
+/* Sheet — slide with momentum */
+.overlay[data-variant='sheet'] .panel { animation: lo-sheet-in 380ms var(--ease-entrance) both; }
+
+/* Drawer — slide from edge */
+.overlay[data-variant='drawer'] .panel { animation: lo-drawer-in 340ms var(--ease-entrance) both; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   11. REDUCED MOTION
+   Preserve hierarchy, feedback, state, spatial understanding.
+   Drop movement — not information.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep opacity transitions for state visibility, drop transforms */
+  [data-reveal] { opacity: 0; transform: none; transition: opacity var(--dur-fast) var(--ease-out); }
+  [data-reveal='visible'] { opacity: 1; }
+
+  /* Ambient motion stops */
+  .ambient-glow, .ambient-drift, .now-card .caption,
+  .timeline li[data-now='true']::before, .running-card .bubble,
+  .focus-ring .ring .fill, .cal-cell[data-today='true'] .cal-num::after {
+    animation: none !important;
+  }
+
+  /* Page transitions: instant opacity, no movement */
+  .page[data-anim] { animation: lo-fade var(--dur-fast) var(--ease-out) both !important; }
+
+  /* Stagger: all appear together, no sequencing */
+  .stagger > *, .stagger-dense > *, .data-forming > * { animation-delay: 0ms !important; }
+
+  /* Completion: no bounce, just state change */
+  .check[aria-checked='true'] { animation: none !important; }
+  .task-row[data-done='true'] { animation: none !important; }
+
+  /* Calendar: no directional slide */
+  .cal-grid[data-dir], .cal-week[data-dir], .cal-day-view[data-dir], .cal-agenda[data-dir] {
+    animation: lo-fade var(--dur-fast) var(--ease-out) both !important;
+  }
+
+  /* Charts: appear without rise */
+  .chart svg .bar-done, .consistency i, .stats > * { animation: lo-fade var(--dur-fast) var(--ease-out) both !important; }
+
+  /* Keep focus enter as simple fade for spatial understanding */
+  .focus-fullscreen { animation: lo-fade var(--dur) var(--ease-out) both !important; }
+}

@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { BubbleIcon, Button } from '../ui/primitives';
 import { Icon } from '../ui/Icon';
 import { Overlay } from '../ui/overlay';
 import { ALL_NAV, NAV_GROUPS } from './nav';
 import type { NavItem } from './nav';
+
+const NAV_ORDER = [
+  '/', '/tasks', '/calendar', '/goals', '/projects', '/milestones',
+  '/habits', '/focus', '/progress', '/capacity', '/compass',
+  '/patterns', '/agent', '/capture', '/create', '/search',
+  '/deadlines', '/review', '/timeline', '/memory', '/decisions',
+  '/experiments', '/accomplishments', '/alerts', '/connect', '/domains', '/settings', '/map',
+];
 
 function SideLink({ item }: { item: NavItem }) {
   return (
@@ -60,15 +68,22 @@ export function AppShell() {
   const [more, setMore] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
+  const prevPath = useRef(loc.pathname);
   const secondary = ALL_NAV.filter((i) => !i.mobilePrimary);
   const moreActive = secondary.some((i) => i.path === loc.pathname);
+
+  const idx = NAV_ORDER.indexOf(loc.pathname);
+  const prevIdx = NAV_ORDER.indexOf(prevPath.current);
+  const anim = idx === -1 || prevIdx === -1 ? 'default' : idx > prevIdx ? 'forward' : idx < prevIdx ? 'back' : 'default';
+
+  useEffect(() => { prevPath.current = loc.pathname; }, [loc.pathname]);
 
   return (
     <div className="shell">
       <a href="#main" className="skip-link">Skip to content</a>
       <Sidebar />
       <main id="main" className="main" tabIndex={-1}>
-        <div key={loc.pathname} className="page page-enter">
+        <div key={loc.pathname} className="page" data-anim={anim}>
           <Outlet />
         </div>
       </main>

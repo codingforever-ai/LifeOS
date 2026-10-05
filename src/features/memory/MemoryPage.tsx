@@ -85,7 +85,7 @@ export default function MemoryPage() {
             <Section title="Pinned">
               <Surface pad="none"><ul className="list divided">
                 {pinned.map((m) => (
-                  <li key={m.id}>
+                  <li key={m.id} className="memory-card">
                     <Row as="div"
                       leading={<BubbleIcon name="brain" tone={CATEGORY_TONE[m.category] ?? 'graphite'} size="sm" />}
                       title={m.content}
@@ -108,7 +108,7 @@ export default function MemoryPage() {
             <Section title="All memories">
               <Surface pad="none"><ul className="list divided">
                 {unpinned.map((m) => (
-                  <li key={m.id}>
+                  <li key={m.id} className="memory-card">
                     <Row as="div"
                       leading={<BubbleIcon name="brain" tone={CATEGORY_TONE[m.category] ?? 'graphite'} size="sm" />}
                       title={m.content}

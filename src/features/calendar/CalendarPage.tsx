@@ -9,6 +9,7 @@ import { EntityForm } from '../../ui/EntityForm';
 import type { IconName } from '../../ui/Icon';
 import { CATEGORY_LABEL, holidaysOn, type Holiday } from './holidays';
 import { UpcomingHolidays } from './UpcomingHolidays';
+import { useNavDirection } from '../../motion/hooks';
 
 type View = 'month' | 'week' | 'day' | 'agenda';
 
@@ -62,6 +63,7 @@ export default function CalendarPage() {
   const [cursor, setCursor] = useState(monthStartKey(todayK));
   const [selected, setSelected] = useState(todayK);
   const [creating, setCreating] = useState(false);
+  const [navDir, setNavDir] = useNavDirection();
 
   // API range — only the date range changes per view, never the data model.
   // The server treats `to` as inclusive then adds +1 day (exclusive end), so we pass the last day we want.
@@ -91,11 +93,13 @@ export default function CalendarPage() {
 
   // Navigation — prev/next moves by the appropriate unit for each view.
   const goPrev = () => {
+    setNavDir('back');
     if (view === 'month') setCursor(addMonths(cursor, -1));
     else if (view === 'week') setCursor(addDayKey(cursor, -7));
     else if (view === 'day') { const d = addDayKey(cursor, -1); setCursor(d); setSelected(d); }
   };
   const goNext = () => {
+    setNavDir('forward');
     if (view === 'month') setCursor(addMonths(cursor, 1));
     else if (view === 'week') setCursor(addDayKey(cursor, 7));
     else if (view === 'day') { const d = addDayKey(cursor, 1); setCursor(d); setSelected(d); }
@@ -169,7 +173,7 @@ export default function CalendarPage() {
 
           {/* MONTH — unchanged grid + holiday highlighting */}
           {data && view === 'month' && (
-            <div className="cal-grid" role="grid" aria-label={title}>
+            <div className="cal-grid" role="grid" aria-label={title} data-dir={navDir}>
               {orderedDows.map((w) => <div key={w} className="cal-dow" role="columnheader">{w}</div>)}
               {cells.slice(0, rows * 7).map((c) => {
                 const list = byDay.get(c) ?? [];
@@ -193,7 +197,7 @@ export default function CalendarPage() {
 
           {/* WEEK — 7 consecutive days, week-start aware */}
           {data && view === 'week' && (
-            <div className="cal-week" role="grid" aria-label={title}>
+            <div className="cal-week" role="grid" aria-label={title} data-dir={navDir}>
               {weekDays.map((k) => {
                 const list = dayEntries(k);
                 const holidays = holidaysOn(k);
@@ -232,7 +236,7 @@ export default function CalendarPage() {
 
           {/* DAY — single selected day */}
           {data && view === 'day' && (
-            <div className="cal-day-view" style={{ padding: 'var(--s3) var(--s4)' }}>
+            <div className="cal-day-view" style={{ padding: 'var(--s3) var(--s4)' }} data-dir={navDir}>
               {dayHolidays.length > 0 && (
                 <div className="holiday-today">
                   {dayHolidays.map((h) => <HolidayRow key={h.id} h={h} />)}
@@ -251,7 +255,7 @@ export default function CalendarPage() {
 
           {/* AGENDA — upcoming 14 days, chronological */}
           {data && view === 'agenda' && (
-            <div className="cal-agenda" style={{ padding: 'var(--s3) var(--s4)' }}>
+            <div className="cal-agenda" style={{ padding: 'var(--s3) var(--s4)' }} data-dir={navDir}>
               {agendaDays.map((k) => {
                 const list = dayEntries(k);
                 const holidays = holidaysOn(k);

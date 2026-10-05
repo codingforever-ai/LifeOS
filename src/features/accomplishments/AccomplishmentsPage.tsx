@@ -40,7 +40,7 @@ export default function AccomplishmentsPage() {
             <Section title="Recorded achievements">
               <Surface pad="none"><ul className="list divided">
                 {data.records.map((a) => (
-                  <li key={a.id}><Row as="div"
+                  <li key={a.id} className="accomplishment-item"><Row as="div"
                     leading={<BubbleIcon name="trophy" tone="sand" size="sm" />}
                     title={a.title}
                     subtitle={<span>{KIND_LABEL[a.kind] ?? a.kind} · {domainName(a.domain)} · {fmt.date(a.achieved_on, tz)}</span>}
@@ -55,7 +55,7 @@ export default function AccomplishmentsPage() {
             <Section title="Goals completed">
               <Surface pad="none"><ul className="list divided">
                 {data.completedGoals.map((g) => (
-                  <li key={g.id}><Row as="div"
+                  <li key={g.id} className="accomplishment-item"><Row as="div"
                     leading={<BubbleIcon name="goals" tone="royal" size="sm" />}
                     title={g.title}
                     subtitle={<span>Goal completed{g.at ? ` · ${fmt.date(g.at, tz)}` : ''}</span>}
@@ -69,7 +69,7 @@ export default function AccomplishmentsPage() {
             <Section title="Projects completed">
               <Surface pad="none"><ul className="list divided">
                 {data.completedProjects.map((p) => (
-                  <li key={p.id}><Row as="div"
+                  <li key={p.id} className="accomplishment-item"><Row as="div"
                     leading={<BubbleIcon name="projects" tone="royal" size="sm" />}
                     title={p.title}
                     subtitle={<span>Project completed{p.at ? ` · ${fmt.date(p.at, tz)}` : ''}{p.tasksDone ? ` · ${p.tasksDone} tasks done` : ''}</span>}
@@ -83,7 +83,7 @@ export default function AccomplishmentsPage() {
             <Section title="Milestones reached">
               <Surface pad="none"><ul className="list divided">
                 {data.milestones.map((m) => (
-                  <li key={m.id}><Row as="div"
+                  <li key={m.id} className="accomplishment-item"><Row as="div"
                     leading={<BubbleIcon name="flag" tone="lavender" size="sm" />}
                     title={m.title}
                     subtitle={<span>Milestone reached{m.at ? ` · ${fmt.date(m.at, tz)}` : ''}</span>}
