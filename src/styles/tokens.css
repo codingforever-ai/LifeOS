@@ -28,6 +28,12 @@
   --warn: #d9b36a;
   --danger: #e08585;
 
+  /* Holiday — red is reserved for holiday dates only (never for ordinary state) */
+  --holiday: #e5484d;
+  --holiday-deep: #cb3238;
+  --holiday-soft: rgba(229, 72, 77, 0.13);
+  --holiday-line: rgba(229, 72, 77, 0.45);
+
   /* Type */
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --fs-caption: 0.75rem;
