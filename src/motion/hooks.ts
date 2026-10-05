@@ -158,10 +158,13 @@ export function useAnimatedNumber(target: number, duration = 600): number {
  */
 export function useNavDirection(): [string, (dir: 'forward' | 'back') => void] {
   const [dir, setDir] = useState('');
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(0);
   const set = useCallback((d: 'forward' | 'back') => {
     setDir(d);
     // Reset after animation completes so re-renders don't replay
-    setTimeout(() => setDir(''), 400);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setDir(''), 400);
   }, []);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   return [dir, set];
 }
