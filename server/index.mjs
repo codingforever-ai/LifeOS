@@ -5,7 +5,7 @@ import { HttpError, all, archive, complete, create, get, getSettings, getRaw, li
 import { authenticate, changePassword, deleteAccount, login, logout, register, revokeOtherSessions, sessionUser } from './auth.mjs';
 import { achievements, alertList, calendarRange, capacity, compass, computeProgress, contextFor, goalHealth, habitsWithStats, patterns, planVsActual, projectHealth, relationshipMap, rows, today, whyBehind } from './derive.mjs';
 import { experimentAction, experimentResults, exportAll, focusAction, focusStart, importAll, inboxConvert, integrationConnect, integrationDisconnect, integrations, rememberSearch, searchAll, timeline } from './services.mjs';
-import { academicOverview, financeOverview, fitnessOverview, personalOverview, reviewFacts, studyOverview, workOverview } from './domains.mjs';
+import { customOverview, academicOverview, financeOverview, fitnessOverview, personalOverview, reviewFacts, studyOverview, workOverview } from './domains.mjs';
 import { actionHistory, agentStatus, applyAction, conversationMessages, listConversations, publicAction, rejectAction, runAgent, undoAction } from './agent/loop.mjs';
 import { addDays, dayKey, startOfDay } from './tz.mjs';
 
@@ -72,9 +72,9 @@ route('POST', '/api/tasks/bulk', ({ user, body }) => {
 route('GET', '/api/bootstrap', ({ user }) => {
   const u = user.id; const since = new Date(Date.now() - 30 * 864e5).toISOString();
   return {
-    user: sessionUser(user), progress: computeProgress(u),
+    user: sessionUser(user), progress: computeProgress(u), customDomains: all(u, 'custom_domains', { filters: { status: 'active' } }),
     goals: all(u, 'goals'), projects: all(u, 'projects'), milestones: all(u, 'milestones'),
-    tasks: rows(u, 'tasks', 'done_at IS NULL OR done_at >= ?', since), deadlines: rows(u, 'deadlines', "status = 'open' OR completed_at >= ?", since),
+    tasks: rows(u, 'tasks', "(done_at IS NULL AND COALESCE(status, 'planned') NOT IN ('cancelled','deferred')) OR done_at >= ?", since), deadlines: rows(u, 'deadlines', "status = 'open' OR completed_at >= ?", since),
   };
 });
 route('GET', '/api/today', ({ user }) => today(user.id));
@@ -96,7 +96,7 @@ route('POST', '/api/habits/:id/log', ({ user, params, body }) => {
   get(user.id, 'habits', params.id);
   const day = body?.day ?? dayKey(new Date(), userTz(user.id)); const status = body?.status ?? 'done';
   const ex = db.prepare('SELECT id FROM habit_completions WHERE user_id = ? AND habit_id = ? AND day = ?').get(user.id, params.id, day);
-  const rec = ex ? update(user.id, 'habit_completions', ex.id, { status }) : create(user.id, 'habit_completions', { habit_id: params.id, day, status });
+  const value = body?.value; const rec = ex ? update(user.id, 'habit_completions', ex.id, { status, ...(value !== undefined ? { value } : {}) }) : create(user.id, 'habit_completions', { habit_id: params.id, day, status, ...(value !== undefined ? { value } : {}) });
   logActivity(user.id, 'habits', params.id, status === 'done' ? 'completed' : 'edited', get(user.id, 'habits', params.id));
   return rec;
 });
@@ -151,8 +151,8 @@ route('GET', '/api/experiments/:id/results', ({ user, params }) => experimentRes
 
 /* ---------- domains ---------- */
 const DOMAINS = { study: studyOverview, academic: academicOverview, work: workOverview, fitness: fitnessOverview, finance: financeOverview, personal: personalOverview };
-route('GET', '/api/domains/:id/overview', ({ user, params }) => { const f = DOMAINS[params.id]; if (!f) throw new HttpError(404, 'Unknown domain'); const u = user.id; return { ...f(u), core: { tasksOpen: rows(u, 'tasks', 'domain = ? AND done_at IS NULL', params.id).length, goals: rows(u, 'goals', 'domain = ?', params.id).length, projects: rows(u, 'projects', 'domain = ?', params.id).length } }; });
-route('GET', '/api/domains-summary', ({ user }) => Object.fromEntries(Object.keys(DOMAINS).map((d) => [d, { tasksOpen: rows(user.id, 'tasks', 'domain = ? AND done_at IS NULL', d).length, goals: rows(user.id, 'goals', 'domain = ?', d).length, projects: rows(user.id, 'projects', 'domain = ?', d).length }])));
+route('GET', '/api/domains/:id/overview', ({ user, params }) => { const u = user.id; const custom = !DOMAINS[params.id] && db.prepare('SELECT 1 FROM custom_domains WHERE user_id = ? AND slug = ? AND archived_at IS NULL').get(u, params.id); const f = DOMAINS[params.id] ?? (custom ? (x) => customOverview(x, params.id) : null); if (!f) throw new HttpError(404, 'Unknown domain'); return { ...f(u), core: { tasksOpen: rows(u, 'tasks', "domain = ? AND done_at IS NULL AND COALESCE(status, 'planned') NOT IN ('cancelled','deferred')", params.id).length, goals: rows(u, 'goals', 'domain = ?', params.id).length, projects: rows(u, 'projects', 'domain = ?', params.id).length } }; });
+route('GET', '/api/domains-summary', ({ user }) => Object.fromEntries([...Object.keys(DOMAINS), ...all(user.id, 'custom_domains').map((c) => c.slug)].map((d) => [d, { tasksOpen: rows(user.id, 'tasks', "domain = ? AND done_at IS NULL AND COALESCE(status, 'planned') NOT IN ('cancelled','deferred')", d).length, goals: rows(user.id, 'goals', 'domain = ?', d).length, projects: rows(user.id, 'projects', 'domain = ?', d).length }])));
 
 /* ---------- data / integrations ---------- */
 route('GET', '/api/export', ({ user, res }) => { res.setHeader('Content-Disposition', 'attachment; filename="lifeos-export.json"'); return exportAll(user.id); });

@@ -168,6 +168,7 @@ export const all = (userId, name, extra = {}) => list(userId, name, { limit: 500
 /* ---------------- mutations ---------------- */
 export function create(userId, name, input, ctx = {}) {
   return tx(() => {
+    if (name === 'custom_domains') input = { ...input, slug: customSlug(userId, input?.name) };
     const vals = buildValues(userId, name, input, { create: true, allowSystem: ctx.allowSystem });
     const id = uid(); const t = now();
     const row = dbVals({ id, user_id: userId, created_at: t, updated_at: t, archived_at: null, ...vals });
@@ -191,6 +192,11 @@ export function update(userId, name, id, patch, ctx = {}) {
     const before = getRaw(userId, name, id);
     if (!before) throw new HttpError(404, `${ENTITIES[name].label} not found`);
     const vals = buildValues(userId, name, patch, { create: false, allowSystem: ctx.allowSystem });
+    const c = ENTITIES[name].completion;
+    if (c?.status && c.at && 'status' in vals) { // keep status and completion timestamp coherent
+      if (vals.status === c.done && !before[c.at]) vals[c.at] = now();
+      else if (vals.status !== c.done && before[c.at]) vals[c.at] = null;
+    }
     const keys = Object.keys(vals);
     if (!keys.length) return hydrate(name, before);
     guardCycles(userId, name, id, vals);
@@ -263,7 +269,7 @@ export function complete(userId, name, id, ctx = {}) {
       if (next) {
         const copy = hydrate(name, raw); copy.recurrence = rule;
         for (const k of ['id', 'created_at', 'updated_at', 'archived_at', 'done_at', 'completed_at']) delete copy[k];
-        copy.due_at = next.toISOString(); if ('status' in copy) copy.status = 'open';
+        copy.due_at = next.toISOString(); if ('status' in copy) copy.status = c.open ?? 'open';
         create(userId, name, copy, { ...ctx, allowSystem: false });
       }
     }
@@ -302,4 +308,20 @@ export function saveSettings(userId, patch) {
   }
   db.prepare('UPDATE users SET settings = ? WHERE id = ?').run(JSON.stringify(next), userId);
   return next;
+}
+
+const BUILTIN_DOMAINS = ['academic', 'study', 'work', 'fitness', 'finance', 'personal'];
+/** Stable, unique, URL-safe id used in every record's `domain` field for a user-defined domain. */
+function customSlug(userId, name) {
+  const base = String(name ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'domain';
+  let slug = BUILTIN_DOMAINS.includes(base) ? `${base}-custom` : base; let n = 2;
+  while (db.prepare('SELECT 1 FROM custom_domains WHERE user_id = ? AND slug = ?').get(userId, slug)) slug = `${base.slice(0, 26)}-${n++}`;
+  return slug;
+}
+/** Resolve a user-supplied domain (id, slug or display name) to a stored domain id, or null if unknown. */
+export function resolveDomain(userId, v) {
+  if (!v) return null; const s = String(v).trim().toLowerCase();
+  if (BUILTIN_DOMAINS.includes(s)) return s;
+  const hit = db.prepare('SELECT slug FROM custom_domains WHERE user_id = ? AND archived_at IS NULL AND (lower(slug) = ? OR lower(name) = ?)').get(userId, s, s);
+  return hit?.slug ?? null;
 }

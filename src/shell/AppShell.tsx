@@ -4,6 +4,8 @@ import { BubbleIcon, Button } from '../ui/primitives';
 import { Icon } from '../ui/Icon';
 import { Overlay } from '../ui/overlay';
 import { ALL_NAV, NAV_GROUPS } from './nav';
+import { allDomains } from '../core/domains';
+import { useCore } from '../core/store';
 import type { NavItem } from './nav';
 
 function SideLink({ item }: { item: NavItem }) {
@@ -15,22 +17,29 @@ function SideLink({ item }: { item: NavItem }) {
   );
 }
 
+/** Nav groups with the user's custom domains appended to the Domains group. */
+function useGroups() {
+  const { version } = useCore(); void version;
+  const custom = allDomains().filter((d) => d.status === 'custom').map<NavItem>((d) => ({ id: `c-${d.id}`, label: d.name, path: d.path, icon: (d.icon as NavItem['icon']) }));
+  return NAV_GROUPS.map((g) => (g.id === 'domains' ? { ...g, items: [...g.items.slice(0, -1), ...custom, ...g.items.slice(-1)] } : g));
+}
+
 function Sidebar() {
-  const nav = useNavigate();
+  const nav = useNavigate(); const groups = useGroups();
   return (
     <aside className="sidebar" aria-label="Primary">
       <div className="brand">
         <BubbleIcon name="focus" tone="purple" size="md" />
         <span className="brand-name">LifeOS</span>
       </div>
-      <Button variant="primary" icon="plus" onClick={() => nav('/capture')} className="side-capture" aria-label="Capture">
-        <span className="side-label">Capture</span>
+      <Button variant="primary" icon="plus" onClick={() => nav('/create')} className="side-capture" aria-label="Create">
+        <span className="side-label">Create</span>
       </Button>
       <nav className="side-nav">
-        {NAV_GROUPS.map((g) => (
+        {groups.map((g) => (
           <div key={g.id} className="side-group">
             {g.label && <div className="caption side-group-label">{g.label}</div>}
-            {g.items.filter((i) => i.id !== 'capture').map((i) => <SideLink key={i.id} item={i} />)}
+            {g.items.map((i) => <SideLink key={i.id} item={i} />)}
           </div>
         ))}
       </nav>
@@ -60,8 +69,8 @@ export function AppShell() {
   const [more, setMore] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
-  const secondary = ALL_NAV.filter((i) => !i.mobilePrimary);
-  const moreActive = secondary.some((i) => i.path === loc.pathname);
+  const groups = useGroups();
+  const moreActive = ALL_NAV.filter((i) => !i.mobilePrimary).some((i) => i.path === loc.pathname) || loc.pathname.startsWith('/domain/');
 
   return (
     <div className="shell">
@@ -74,14 +83,19 @@ export function AppShell() {
       </main>
       <BottomNav onMore={() => setMore(true)} moreActive={moreActive} />
       <Overlay open={more} onClose={() => setMore(false)} title="More">
-        <div className="more-grid">
-          {secondary.map((i) => (
-            <button key={i.id} type="button" className="more-item" onClick={() => { setMore(false); nav(i.path); }}>
-              <BubbleIcon name={i.icon} tone={i.id === 'capture' ? 'purple' : 'graphite'} size="lg" />
-              <span>{i.label}</span>
-            </button>
-          ))}
-        </div>
+        {groups.map((g) => (
+          <section key={g.id} aria-label={g.label ?? 'Home'}>
+            {g.label && <div className="caption more-group">{g.label}</div>}
+            <div className="more-grid">
+              {g.items.filter((i) => !i.mobilePrimary).map((i) => (
+                <button key={i.id} type="button" className="more-item" onClick={() => { setMore(false); nav(i.path); }}>
+                  <BubbleIcon name={i.icon} tone={loc.pathname === i.path ? 'purple' : 'graphite'} size="lg" />
+                  <span>{i.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
       </Overlay>
     </div>
   );

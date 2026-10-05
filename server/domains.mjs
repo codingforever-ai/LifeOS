@@ -37,6 +37,7 @@ export function academicOverview(u) {
     assignmentsOpen: assignments.filter((a) => ['todo', 'in_progress'].includes(a.status)).sort((a, b) => a.due_at.localeCompare(b.due_at)).map((a) => ({ ...a, daysLeft: daysTo(a.due_at), overdue: new Date(a.due_at) < now })),
     submitted: assignments.filter((a) => ['submitted', 'graded'].includes(a.status)).length, focusMinutes14d: domainMinutes(u, 'academic'),
     projects: rows(u, 'projects', "domain = 'academic'").map((p) => ({ id: p.id, title: p.title, status: p.status })),
+    gamification: academicGame(u, assignments),
   };
 }
 export function workOverview(u) {
@@ -107,5 +108,42 @@ export function reviewFacts(u, start, end) {
     focus: { sessions: sessions.length, minutes: Math.round(sum(sessions, sessionMinutes)) }, habitCompletions: habits,
     capacity: { available: cap.totals.available, planned: cap.totals.planned, committed: cap.totals.committed },
     compass: compass(u, 7).allocation.slice(0, 4),
+  };
+}
+
+/** Generic overview for a user-defined domain: the same shared core, filtered by the domain id. */
+export function customOverview(u, slug) {
+  const now = new Date(); const goals = rows(u, 'goals', 'domain = ?', slug); const tasks = rows(u, 'tasks', 'domain = ?', slug);
+  const done = tasks.filter((t) => t.done_at);
+  return {
+    goals: goals.map((g) => ({ id: g.id, title: g.title, status: g.status })),
+    projects: rows(u, 'projects', 'domain = ?', slug).map((p) => ({ id: p.id, title: p.title, status: p.status })),
+    deadlines: rows(u, 'deadlines', "domain = ? AND status = 'open'", slug).sort((a, b) => a.due_at.localeCompare(b.due_at)).slice(0, 10).map((d) => ({ ...d, daysLeft: daysTo(d.due_at, now) })),
+    habits: rows(u, 'habits', 'domain = ?', slug).map((h) => ({ id: h.id, title: h.title })),
+    taskTotals: { open: tasks.length - done.length, done: done.length }, focusMinutes14d: domainMinutes(u, slug),
+    memories: rows(u, 'notes', 'domain = ?', slug).length,
+  };
+}
+
+/**
+ * Academic-only gamification, DERIVED from real records (never stored): XP from finished academic work, coins from XP,
+ * level from XP, streak from consecutive days with academic activity, and a boss quest = the nearest exam.
+ */
+function academicGame(u, assignments) {
+  const tz = userTz(u);
+  const doneTasks = rows(u, 'tasks', "domain IN ('academic','study') AND done_at IS NOT NULL");
+  const sessions = rows(u, 'focus_sessions', "domain IN ('academic','study') AND status IN ('completed','stopped')");
+  const results = rows(u, 'practice_results'); const submitted = assignments.filter((a) => ['submitted', 'graded'].includes(a.status));
+  const focusMin = Math.round(sum(sessions, sessionMinutes));
+  const xp = doneTasks.length * 10 + submitted.length * 25 + results.length * 20 + Math.floor(focusMin / 5);
+  const days = new Set([...doneTasks.map((t) => dayKey(new Date(t.done_at), tz)), ...sessions.map((s) => dayKey(new Date(s.started_at), tz)), ...results.map((r) => dayKey(new Date(r.taken_at), tz))]);
+  let streak = 0; let k = dayKey(new Date(), tz); if (!days.has(k)) k = addDays(k, -1); while (days.has(k)) { streak++; k = addDays(k, -1); }
+  const level = Math.floor(Math.sqrt(xp / 50)) + 1; const next = 50 * level * level; const cur = 50 * (level - 1) * (level - 1);
+  const exam = rows(u, 'exams').filter((e) => new Date(e.exam_at) > new Date()).sort((a, b) => a.exam_at.localeCompare(b.exam_at))[0] ?? null;
+  const topics = exam?.subject_id ? rows(u, 'topics').filter((t) => t.subject_id === exam.subject_id) : [];
+  return {
+    xp, coins: Math.floor(xp / 10), level, levelProgress: next > cur ? (xp - cur) / (next - cur) : 0, xpToNext: next - xp, streak,
+    formula: '10 XP per finished academic/study task, 25 per submitted assignment, 20 per test result, 1 per 5 focus minutes. 10 XP = 1 coin.',
+    bossQuest: exam ? { id: exam.id, title: exam.title, daysLeft: daysTo(exam.exam_at), topics: topics.length, revised: topics.filter((t) => ['practiced', 'revised'].includes(t.status)).length } : null,
   };
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, ApiError } from '../api/client';
 import { ENT } from '../core/entities';
+import { domainOptions } from '../core/domains';
 import type { FieldDef } from '../core/entities';
 import { useAuth } from '../core/auth';
 import { useApi, useCore } from '../core/store';
@@ -43,7 +44,9 @@ function initial(fields: FieldDef[], rec: Rec | null, defaults: Rec, tz: string)
 export function EntityForm({ entity, record, defaults = {}, open, onClose, onSaved, title }: { entity: string; record?: Rec | null; defaults?: Rec; open: boolean; onClose: () => void; onSaved?: (r: Rec) => void; title?: string }) {
   const def = ENT[entity];
   const { tz } = useAuth(); const { run } = useCore();
-  const merged = useMemo(() => ({ ...def.defaults, ...defaults }), [def, defaults]);
+  const defKey = JSON.stringify(defaults);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const merged = useMemo(() => ({ ...def.defaults, ...defaults }), [def, defKey]);
   const [vals, setVals] = useState<Rec>({});
   const [errors, setErrors] = useState<Record<string, string>>({}); const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false); const [confirmDel, setConfirmDel] = useState(false); const [typed, setTyped] = useState('');
@@ -93,7 +96,8 @@ export function EntityForm({ entity, record, defaults = {}, open, onClose, onSav
             const id = fid(f.key); const err = errors[f.key];
             const common = { id, 'aria-invalid': !!err || undefined, 'aria-describedby': err ? `${id}-err` : undefined };
             let control;
-            if (f.type === 'textarea') control = <Textarea {...common} rows={3} value={vals[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} />;
+            if (f.type === 'domain') control = <select {...common} className="input" value={vals[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)}><option value="">—</option>{domainOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
+            else if (f.type === 'textarea') control = <Textarea {...common} rows={3} value={vals[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder} />;
             else if (f.type === 'select') control = <select {...common} className="input" value={vals[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)}>{!f.required && <option value="">—</option>}{f.options!.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
             else if (f.type === 'ref') control = <RefSelect id={id} entity={f.ref!} value={vals[f.key] ?? ''} onChange={(v) => set(f.key, v)} />;
             else if (f.type === 'bool') control = <label className="check-line"><input type="checkbox" checked={!!vals[f.key]} onChange={(e) => set(f.key, e.target.checked)} /> <span>Yes</span></label>;

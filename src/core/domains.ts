@@ -13,5 +13,12 @@ export const DOMAINS: DomainDef[] = [
   { id: 'finance', name: 'Finance', blurb: 'Commitments, saving, planning', icon: 'wallet', tone: 'sand', path: '/finance', status: 'core' },
   { id: 'personal', name: 'Personal', blurb: 'Errands, home, relationships', icon: 'home', tone: 'purple', path: '/personal', status: 'core' },
 ];
-export const domainName = (id: string | null | undefined) => DOMAINS.find((d) => d.id === id)?.name ?? (id ? id[0].toUpperCase() + id.slice(1) : 'Unassigned');
-export const DOMAIN_OPTIONS = DOMAINS.map((d) => ({ value: d.id, label: d.name }));
+/** User-defined domains (server table custom_domains). The store keeps this registry in sync with the API. */
+let CUSTOM: DomainDef[] = [];
+export function setCustomDomains(rows: { slug: string; name: string; description?: string | null; icon?: string | null; color?: string | null }[]) {
+  CUSTOM = rows.map((r) => ({ id: r.slug, name: r.name, blurb: r.description || 'Custom domain', icon: r.icon || 'layers', tone: r.color || 'purple', path: `/domain/${r.slug}`, status: 'custom' }));
+}
+export const allDomains = () => [...DOMAINS, ...CUSTOM];
+export const findDomain = (id: string | null | undefined) => allDomains().find((d) => d.id === id);
+export const domainName = (id: string | null | undefined) => findDomain(id)?.name ?? (id ? id[0].toUpperCase() + id.slice(1) : 'Unassigned');
+export const domainOptions = () => allDomains().map((d) => ({ value: d.id, label: d.name }));

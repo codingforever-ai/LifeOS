@@ -1,7 +1,6 @@
 import type { IconName } from '../ui/Icon';
-import { DOMAIN_OPTIONS } from './domains';
 
-export type FieldType = 'text' | 'textarea' | 'select' | 'date' | 'datetime' | 'number' | 'bool' | 'ref' | 'recurrence' | 'tags' | 'url';
+export type FieldType = 'domain' | 'text' | 'textarea' | 'select' | 'date' | 'datetime' | 'number' | 'bool' | 'ref' | 'recurrence' | 'tags' | 'url';
 export interface FieldDef {
   key: string; label: string; type: FieldType; required?: boolean; options?: { value: string; label: string }[]; ref?: string; placeholder?: string;
   /** For datetime fields: key of a boolean that marks "no specific time" (stored time is local noon). */
@@ -15,7 +14,7 @@ export interface EntityDef {
 const opt = (...v: string[]) => v.map((x) => ({ value: x, label: x.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()) }));
 const PRI = opt('high', 'medium', 'low');
 const f = (key: string, label: string, type: FieldType, o: Partial<FieldDef> = {}): FieldDef => ({ key, label, type, ...o });
-const domain = f('domain', 'Domain', 'select', { options: DOMAIN_OPTIONS });
+const domain = f('domain', 'Domain', 'domain');
 const goalRef = f('goal_id', 'Goal', 'ref', { ref: 'goals' });
 const projectRef = f('project_id', 'Project', 'ref', { ref: 'projects' });
 
@@ -86,3 +85,42 @@ export const ENT: Record<string, EntityDef> = {
   personal_items: { entity: 'personal_items', label: 'Item', plural: 'Personal', icon: 'home', tone: 'purple', title: (r) => r.title, defaults: { kind: 'errand', status: 'open' }, fields: [f('title', 'Title', 'text', { required: true, wide: true }), f('kind', 'Type', 'select', { options: opt('errand', 'appointment', 'household', 'relationship', 'travel', 'admin') }), f('due_at', 'Due', 'datetime'), f('status', 'Status', 'select', { options: opt('open', 'done') }), f('notes', 'Notes', 'textarea', { wide: true })] },
 };
 export const entityDef = (name: string) => ENT[name];
+
+/* ---- Extended model (shared by every module): task types/statuses, goal measurement, deadline types, custom domains ---- */
+export const TASK_TYPES = opt('standard', 'deep_work', 'quick', 'admin', 'study', 'practice', 'revision', 'assignment', 'exam_prep', 'work_deliverable', 'meeting_prep', 'communication', 'call', 'email', 'errand', 'chore', 'purchase', 'payment', 'workout', 'recovery', 'personal', 'creative', 'research', 'review', 'planning', 'habit_task', 'follow_up', 'recurring', 'milestone_task');
+export const TASK_STATUSES = opt('inbox', 'planned', 'in_progress', 'blocked', 'waiting', 'completed', 'cancelled', 'deferred');
+export const GOAL_TYPES = opt('outcome', 'performance', 'process', 'learning', 'academic', 'career', 'financial', 'fitness', 'health', 'habit', 'relationship', 'personal', 'creative', 'project', 'experience', 'lifestyle', 'skill', 'business', 'savings', 'revenue', 'debt', 'exam', 'grade', 'reading', 'time', 'frequency', 'quantity', 'completion', 'custom');
+export const MEASURE_TYPES = opt('milestones', 'binary', 'count', 'percentage', 'currency', 'duration', 'distance', 'weight', 'score', 'rating', 'frequency', 'streak', 'quantity', 'ratio', 'numeric');
+const ENERGY = opt('low', 'medium', 'high');
+const addFields = (e: string, ...fs: FieldDef[]) => { ENT[e].fields.push(...fs); };
+const before = (e: string, key: string, ...fs: FieldDef[]) => { const i = ENT[e].fields.findIndex((x) => x.key === key); ENT[e].fields.splice(i < 0 ? ENT[e].fields.length : i, 0, ...fs); };
+
+before('tasks', 'due_at', f('task_type', 'Task type', 'select', { options: TASK_TYPES }), f('status', 'Status', 'select', { options: TASK_STATUSES }), f('start_at', 'Start', 'datetime'));
+addFields('tasks', f('importance', 'Importance (1–5)', 'number', { min: 1, max: 5 }), f('urgency', 'Urgency (1–5)', 'number', { min: 1, max: 5 }), f('energy', 'Energy needed', 'select', { options: ENERGY }), f('context', 'Context', 'text', { placeholder: '@home, @computer…' }), f('location', 'Location', 'text'), f('blocker', 'Blocked by', 'text', { wide: true }));
+ENT.tasks.defaults = { ...ENT.tasks.defaults, status: 'planned', task_type: 'standard', energy: 'medium' };
+before('goals', 'status', f('goal_type', 'Goal type', 'select', { options: GOAL_TYPES }), f('measure_type', 'Measured as', 'select', { options: MEASURE_TYPES, help: 'Pick “milestones” to derive progress from linked projects, milestones and tasks.' }),
+  f('direction', 'Direction', 'select', { options: opt('increase', 'decrease', 'maintain', 'achieve') }), f('method', 'Progress comes from', 'select', { options: [{ value: 'work', label: 'Linked projects / milestones / tasks' }, { value: 'measurements', label: 'Logged measurements' }, { value: 'habits', label: 'Linked habit entries' }, { value: 'focus', label: 'Tracked focus time' }], help: 'Progress is always computed from this source — it is never typed in.' }),
+  f('baseline', 'Baseline (start value)', 'number'), f('target_value', 'Target value', 'number'), f('unit', 'Unit', 'text', { placeholder: '₹, kg, km, hours, pages…' }), f('start_date', 'Start date', 'date'));
+addFields('goals', f('confidence', 'Confidence (0–100)', 'number', { min: 0, max: 100 }), f('parent_id', 'Part of vision/goal', 'ref', { ref: 'goals' }));
+ENT.goals.defaults = { ...ENT.goals.defaults, goal_type: 'outcome', measure_type: 'milestones', direction: 'increase', method: 'work' };
+before('deadlines', 'priority', f('type', 'Type', 'select', { options: opt('exam', 'assignment', 'project', 'deliverable', 'bill', 'payment', 'appointment', 'application', 'renewal', 'travel', 'event', 'commitment', 'milestone', 'challenge', 'order', 'repair', 'medical', 'responsibility', 'other') }));
+addFields('deadlines', f('status', 'Status', 'select', { options: opt('open', 'done', 'cancelled') }), f('outcome', 'Outcome', 'textarea', { wide: true }), f('blocker', 'Blocked by', 'text', { wide: true }), f('depends_on_id', 'Depends on deadline', 'ref', { ref: 'deadlines' }));
+ENT.deadlines.defaults = { ...ENT.deadlines.defaults, type: 'commitment', status: 'open' };
+addFields('projects', f('priority', 'Priority', 'select', { options: PRI }), f('start_date', 'Start date', 'date'), f('depends_on_id', 'Depends on project', 'ref', { ref: 'projects' }), f('outcome', 'Outcome', 'textarea', { wide: true }));
+addFields('milestones', domain, f('target_text', 'Measurable target', 'text', { wide: true, placeholder: 'e.g. Score 80% on mock test' }), f('outcome', 'Outcome', 'textarea', { wide: true }));
+addFields('habits', f('kind', 'Tracked as', 'select', { options: opt('binary', 'quantity', 'duration') }), f('target_value', 'Daily target', 'number'), f('unit', 'Unit', 'text', { placeholder: 'pages, glasses, minutes' }), f('counts_to_goal', 'Counts toward linked goal', 'bool', { help: 'Only when the goal’s progress source is “Linked habit entries”.' }));
+addFields('accomplishments', f('evidence', 'Evidence', 'textarea', { wide: true }), goalRef, projectRef, f('before_value', 'Before', 'text'), f('after_value', 'After', 'text'), f('outcome', 'Outcome', 'textarea', { wide: true }));
+addFields('decisions', f('assumptions', 'Assumptions', 'textarea', { wide: true }), f('actual', 'Actual outcome', 'textarea', { wide: true }), f('learned', 'Lesson learned', 'textarea', { wide: true }), f('status', 'Status', 'select', { options: opt('open', 'reviewed') }));
+ENT.memories.fields = ENT.memories.fields.map((x) => (x.key === 'category' ? { ...x, options: opt('fact', 'preference', 'principle', 'rule', 'lesson', 'decision', 'event', 'relationship', 'context', 'insight', 'note') } : x));
+ENT.inbox.fields = ENT.inbox.fields.map((x) => (x.key === 'kind' ? { ...x, options: opt('thought', 'task', 'idea', 'note', 'deadline', 'event', 'goal', 'project', 'decision', 'reflection', 'memory', 'resource', 'link', 'commitment') } : x));
+before('inbox', 'content', f('title', 'Title', 'text', { wide: true }));
+addFields('inbox', f('tags', 'Tags (comma separated)', 'tags'), domain, f('due_at', 'Date / time', 'datetime'));
+ENT.custom_domains = { entity: 'custom_domains', label: 'Domain', plural: 'Domains', icon: 'layers', tone: 'purple', title: (r) => r.name, defaults: { color: 'purple', icon: 'layers', status: 'active' }, fields: [
+  f('name', 'Name', 'text', { required: true, wide: true, placeholder: 'Music, Travel, Business…' }), f('description', 'Description', 'textarea', { wide: true }), f('category', 'Category', 'text'),
+  f('icon', 'Icon', 'select', { options: opt('layers', 'briefcase', 'book', 'leaf', 'plane', 'users', 'home', 'flask', 'trophy', 'sparkle', 'wallet', 'dumbbell', 'brain', 'palette', 'building', 'target') }),
+  f('color', 'Accent', 'select', { options: opt('purple', 'royal', 'lavender', 'plum', 'slate', 'mist', 'sand') }), f('status', 'Status', 'select', { options: opt('active', 'archived') }),
+] };
+
+ENT.experiment_observations = { entity: 'experiment_observations', label: 'Observation', plural: 'Observations', icon: 'flask', tone: 'plum', title: (r) => `${r.measure ?? 'value'}: ${r.value ?? ''} ${r.note ?? ''}`, fields: [
+  f('experiment_id', 'Experiment', 'ref', { ref: 'experiments', required: true }), f('day', 'Day', 'date', { required: true }), f('measure', 'Measure', 'text', { placeholder: 'e.g. hours slept' }), f('value', 'Value', 'number'), f('note', 'Note', 'textarea', { wide: true }),
+] };

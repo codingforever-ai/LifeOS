@@ -40,7 +40,38 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '002_extend_model',
+    // Adds new columns / tables declared in schema.mjs (measurement model, task types, custom domains, attachments…).
+    up() { syncSchema(); backfill(); },
+  },
+  { id: '003_custom_domain_slug', up() { syncSchema(); } },
 ];
+function syncSchema() {
+      for (const [name, spec] of Object.entries(ENTITIES)) {
+        const existing = db.prepare(`PRAGMA table_info(${name})`).all().map((c) => c.name);
+        if (!existing.length) {
+          const cols = Object.entries(spec.fields).map(([c, f]) => `${c} ${SQL[f.t]}`);
+          const unique = spec.unique ? `, UNIQUE(user_id, ${spec.unique.join(', ')})` : '';
+          db.exec(`CREATE TABLE ${name} (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived_at TEXT, ${cols.join(', ')}${unique});
+            CREATE INDEX idx_${name}_user ON ${name}(user_id, archived_at);`);
+          continue;
+        }
+        for (const [c, f] of Object.entries(spec.fields)) if (!existing.includes(c)) db.exec(`ALTER TABLE ${name} ADD COLUMN ${c} ${SQL[f.t]}`);
+      }
+}
+function backfill() {
+      db.exec(`UPDATE tasks SET status = CASE WHEN done_at IS NOT NULL THEN 'completed' ELSE 'planned' END WHERE status IS NULL;
+        UPDATE tasks SET task_type = 'standard' WHERE task_type IS NULL;
+        UPDATE deadlines SET type = 'commitment' WHERE type IS NULL;
+        UPDATE goals SET goal_type = 'outcome', measure_type = 'milestones', direction = 'increase', method = 'work', is_vision = 0 WHERE goal_type IS NULL;
+        UPDATE habits SET kind = 'binary', counts_to_goal = 0 WHERE kind IS NULL;
+        UPDATE focus_sessions SET kind = 'deep_work', interruptions = 0 WHERE kind IS NULL;
+        UPDATE projects SET priority = 'medium' WHERE priority IS NULL;
+        UPDATE milestones SET domain = 'personal' WHERE domain IS NULL;
+        UPDATE decisions SET decided_on = substr(created_at, 1, 10) WHERE decided_on IS NULL;`);
+}
 
 export function migrate() {
   db.exec('CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');

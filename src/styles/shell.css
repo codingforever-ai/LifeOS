@@ -59,3 +59,9 @@
   .side-capture { padding: 0 var(--s5); }
   .side-link { justify-content: flex-start; padding: 0 var(--s3); }
 }
+
+.more-group { padding: var(--s4) var(--s1) 0; }
+.sidebar { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.side-nav { padding-bottom: var(--s6); }
+.side-link:focus-visible, .tab-link:focus-visible, .more-item:focus-visible { outline: 2px solid var(--accent-lavender); outline-offset: 2px; }
+@media (max-width: 767px) { .more-grid { grid-template-columns: repeat(4, 1fr); } }

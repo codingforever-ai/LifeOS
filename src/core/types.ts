@@ -20,4 +20,4 @@ export interface Progress { goals: Record<string, ProgressInfo>; projects: Recor
 
 export interface CalItem { source: 'event' | 'deadline' | 'task' | 'focus'; id: string; series_id?: string; title: string; kind: string; domain: string; start: string; end: string | null; allDay: boolean; recurring?: boolean; priority?: Priority; place?: string; task_id?: string; project_id?: string; goal_id?: string }
 
-export interface DomainDef { id: DomainId; name: string; blurb: string; icon: string; tone: string; path: string; status?: 'core' | 'planned' }
+export interface DomainDef { id: DomainId; name: string; blurb: string; icon: string; tone: string; path: string; status?: 'core' | 'planned' | 'custom' }

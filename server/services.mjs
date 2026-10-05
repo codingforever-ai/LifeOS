@@ -109,14 +109,18 @@ export function timeline(userId, { from, to, domain, entity, entityId, limit = 1
 export function inboxConvert(userId, id, as, extra = {}) {
   return tx(() => {
     const item = getRaw(userId, 'inbox', id); if (!item) throw new HttpError(404, 'Capture not found');
-    const title = String(item.content).split('\n')[0].slice(0, 200);
-    let rec;
-    if (as === 'task') rec = create(userId, 'tasks', { title, notes: item.content.length > title.length ? item.content : undefined, ...extra });
-    else if (as === 'note') rec = create(userId, 'notes', { title, body: item.content, ...extra });
-    else if (as === 'deadline') rec = create(userId, 'deadlines', { title, due_at: extra.due_at, ...extra });
-    else if (as === 'project') rec = create(userId, 'projects', { title, ...extra });
-    else if (as === 'goal') rec = create(userId, 'goals', { title, ...extra });
+    const title = (item.title || String(item.content).split('\n')[0]).slice(0, 200);
+    const carry = Object.fromEntries(Object.entries({ domain: item.domain, tags: item.tags ? JSON.parse(item.tags) : undefined }).filter(([, v]) => v));
+    const due = item.due_at ? { due_at: item.due_at } : {};
+    extra = { ...extra }; let rec;
+    if (as === 'task') rec = create(userId, 'tasks', { title, ...carry, ...due, ...(item.content.length > title.length ? { notes: item.content } : {}), ...extra });
+    else if (as === 'note') rec = create(userId, 'notes', { title, body: item.content, ...(carry.domain ? { domain: carry.domain } : {}), ...extra });
+    else if (as === 'deadline') rec = create(userId, 'deadlines', { title, ...(carry.domain ? { domain: carry.domain } : {}), ...due, ...extra });
+    else if (as === 'project') rec = create(userId, 'projects', { title, ...(carry.domain ? { domain: carry.domain } : {}), ...extra });
+    else if (as === 'goal') rec = create(userId, 'goals', { title, ...(carry.domain ? { domain: carry.domain } : {}), ...extra });
     else if (as === 'memory') rec = create(userId, 'memories', { content: item.content, ...extra });
+    else if (as === 'event') rec = create(userId, 'events', { title, start_at: extra.start_at ?? item.due_at, ...(carry.domain ? { domain: carry.domain } : {}), ...extra });
+    else if (as === 'decision') rec = create(userId, 'decisions', { title, context: item.content, ...(carry.domain ? { domain: carry.domain } : {}), ...extra });
     else if (as === 'dismiss') { update(userId, 'inbox', id, { status: 'dismissed' }); return { dismissed: true }; }
     else throw new HttpError(400, 'Cannot convert to that type');
     update(userId, 'inbox', id, { status: 'processed', resolved_type: as, resolved_id: rec.id });

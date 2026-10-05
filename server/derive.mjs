@@ -16,13 +16,42 @@ const hm = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; 
 const sum = (a, f = (x) => x) => a.reduce((s, x) => s + (f(x) || 0), 0);
 const ratio = (a, b) => (b > 0 ? a / b : 0);
 
+/** Open = not completed and not cancelled/deferred (status may be NULL on legacy rows). */
+export const OPEN_TASK = "done_at IS NULL AND COALESCE(status, 'planned') NOT IN ('cancelled', 'deferred')";
+
+/* ======================= GOAL MEASUREMENT ======================= */
+const CUMULATIVE = new Set(['count', 'currency', 'duration', 'distance', 'quantity', 'frequency']);
+/** Current value of a measured goal, computed from source records (measurements / habit entries / focus sessions). */
+export function goalMeasured(userId, g, meas, habitsByGoal, focusByGoal) {
+  if (g.target_value == null || g.method === 'work' || g.measure_type === 'milestones') return null;
+  let current = null; let entries = 0; let latestAt = null;
+  if (g.method === 'measurements') {
+    const ms = (meas.get(g.id) ?? []).sort((a, b) => a.at.localeCompare(b.at)); entries = ms.length;
+    if (ms.length) { latestAt = ms[ms.length - 1].at; current = CUMULATIVE.has(g.measure_type) ? sum(ms, (m) => m.value) : ms[ms.length - 1].value; }
+    if (g.baseline == null && ms.length && !CUMULATIVE.has(g.measure_type)) g = { ...g, baseline: ms[0].value };
+  } else if (g.method === 'habits') {
+    const hs = habitsByGoal.get(g.id) ?? [];
+    current = sum(hs, (h) => sum(h.entries, (c) => (c.status === 'done' ? (c.value ?? 1) : 0))); entries = sum(hs, (h) => h.entries.length);
+  } else if (g.method === 'focus') {
+    const mins = focusByGoal.get(g.id) ?? 0; current = /^h/i.test(g.unit ?? '') ? mins / 60 : mins; entries = mins > 0 ? 1 : 0;
+  }
+  const base = g.baseline ?? 0; const target = g.target_value; let progress = 0;
+  if (current == null) return { current: null, target, baseline: g.baseline, unit: g.unit, direction: g.direction, method: g.method, entries: 0, progress: 0 };
+  if (g.direction === 'decrease') progress = base === target ? (current <= target ? 1 : 0) : (base - current) / (base - target);
+  else if (g.direction === 'maintain') progress = 1 - Math.min(1, Math.abs(current - target) / Math.max(Math.abs(target) * 0.1, 1));
+  else progress = target === base ? (current >= target ? 1 : 0) : (current - base) / (target - base);
+  progress = Math.max(0, Math.min(1, progress));
+  return { current: Math.round(current * 100) / 100, target, baseline: g.baseline, unit: g.unit, direction: g.direction, method: g.method, entries, latestAt, progress };
+}
+
 /* ======================= PROGRESS ======================= */
 export function computeProgress(userId) {
   const goals = rows(userId, 'goals'); const projects = rows(userId, 'projects');
   const milestones = rows(userId, 'milestones'); const tasks = rows(userId, 'tasks');
   const byM = group(tasks, 'milestone_id'); const byP = group(tasks, 'project_id'); const byG = group(tasks, 'goal_id');
   const msByP = group(milestones, 'project_id'); const msByG = group(milestones, 'goal_id');
-  const frac = (ts) => (ts.length ? ts.filter((t) => t.done_at).length / ts.length : null);
+  const live = (ts) => ts.filter((t) => t.status !== 'cancelled');
+  const frac = (ts) => { ts = live(ts); return ts.length ? ts.filter((t) => t.done_at).length / ts.length : null; };
 
   const ms = {};
   for (const m of milestones) {
@@ -45,6 +74,21 @@ export function computeProgress(userId) {
     const loose = (byG.get(g.id) ?? []).filter((t) => !t.project_id && !t.milestone_id);
     if (loose.length) units.push(frac(loose));
     gl[g.id] = { progress: units.length ? sum(units) / units.length : 0, projects: ps.length, projectsDone: ps.filter((p) => p.status === 'completed').length, tasksTotal: sum(ps, (p) => pr[p.id].tasksTotal) + loose.length };
+  }
+  // Measured goals: progress comes from actual measurements / habit entries / focus time, not from linked-work fractions.
+  const meas = group(rows(userId, 'measurements'), 'goal_id');
+  const habitRows = rows(userId, 'habits', 'counts_to_goal = 1'); const habitsByGoal = new Map();
+  if (habitRows.length) {
+    const comps = group(rows(userId, 'habit_completions'), 'habit_id');
+    for (const h of habitRows) if (h.goal_id) { if (!habitsByGoal.has(h.goal_id)) habitsByGoal.set(h.goal_id, []); habitsByGoal.get(h.goal_id).push({ ...h, entries: comps.get(h.id) ?? [] }); }
+  }
+  const focusByGoal = new Map();
+  for (const f of rows(userId, 'focus_sessions', "status IN ('completed','stopped') AND goal_id IS NOT NULL")) focusByGoal.set(f.goal_id, (focusByGoal.get(f.goal_id) ?? 0) + f.accumulated_ms / 60000);
+  for (const g of goals) {
+    const m = goalMeasured(userId, g, meas, habitsByGoal, focusByGoal);
+    gl[g.id].measured = m; gl[g.id].workProgress = gl[g.id].progress;
+    if (m) gl[g.id].progress = m.progress;
+    else if (g.status === 'completed') gl[g.id].progress = 1;
   }
   return { goals: gl, projects: pr, milestones: ms };
 }
@@ -171,7 +215,7 @@ export function calendarRange(userId, from, to) {
   for (const e of events) items.push({ source: 'event', id: e.id, series_id: e.series_id, title: e.title, kind: e.kind, domain: e.domain, start: e.start_at, end: e.end_at, allDay: e.all_day, goal_id: e.goal_id, project_id: e.project_id, task_id: e.task_id, place: e.place, recurring: !!e.recurring });
   for (const d of rows(userId, 'deadlines', "status = 'open' AND due_at >= ? AND due_at < ?", from.toISOString(), to.toISOString()))
     items.push({ source: 'deadline', id: d.id, title: d.title, kind: 'deadline', domain: d.domain, start: d.due_at, end: null, allDay: !d.has_time, priority: d.priority });
-  for (const t of rows(userId, 'tasks', 'done_at IS NULL AND due_at >= ? AND due_at < ?', from.toISOString(), to.toISOString()))
+  for (const t of rows(userId, 'tasks', OPEN_TASK + ' AND due_at >= ? AND due_at < ?', from.toISOString(), to.toISOString()))
     items.push({ source: 'task', id: t.id, title: t.title, kind: 'task', domain: t.domain, start: t.due_at, end: t.estimate_min && t.due_has_time ? new Date(new Date(t.due_at).getTime() + t.estimate_min * 60000).toISOString() : null, allDay: !t.due_has_time, priority: t.priority });
   for (const s of rows(userId, 'focus_sessions', "started_at >= ? AND started_at < ? AND status IN ('completed','stopped','running','paused')", from.toISOString(), to.toISOString()))
     items.push({ source: 'focus', id: s.id, title: 'Focus session', kind: 'focus', domain: s.domain, start: s.started_at, end: s.ended_at ?? null, allDay: false });
@@ -184,7 +228,7 @@ export function capacity(userId, fromDayKey, days = 7) {
   const wStart = hm(s.workStart); const wEnd = hm(s.workEnd);
   const from = startOfDay(fromDayKey, tz); const to = startOfDay(addDays(fromDayKey, days), tz);
   const events = eventOccurrences(userId, from, to);
-  const tasks = rows(userId, 'tasks', 'done_at IS NULL');
+  const tasks = rows(userId, 'tasks', OPEN_TASK);
   const out = []; const domains = {};
   const today = dayKey(new Date(), tz);
   const bump = (dom, k, v) => { domains[dom ?? 'personal'] ??= { committed: 0, planned: 0 }; domains[dom ?? 'personal'][k] += v; };
@@ -329,8 +373,11 @@ export function achievements(userId) {
     def('quarterly-review', 'Completed a quarterly review', 'Finish a quarterly review.', q.length > 0, q.length ? 1 : 0, q.length ? `${q.length} quarterly review(s)` : 'No quarterly review yet', q[0]?.created_at),
     def('major-milestones', 'Major milestones', 'Complete 10 milestones.', ms.length >= 10, ms.length / 10, `${ms.length} of 10 milestones completed`),
     def('sustained-progress', 'Sustained goal progress', 'Complete work toward one goal in 4 different weeks.', (sustained?.[1].size ?? 0) >= 4, (sustained?.[1].size ?? 0) / 4, `${sustained?.[1].size ?? 0} of 4 active weeks on one goal`),
-  ];
+    def('focus-1000', '1,000 focus hours', 'Log 1,000 hours of focused work.', focusH >= 1000, focusH / 1000, `${focusH.toFixed(1)} of 1,000 hours logged`),
+    def('consistency-365', 'A year of consistency', 'Keep any habit going for 365 days.', bestStreak >= 365, bestStreak / 365, `Longest streak ${bestStreak} day(s)`),
+  ].map((a) => ({ ...a, tier: ACH_TIER[a.id] ?? 'common' }));
 }
+const ACH_TIER = { 'first-goal': 'common', 'first-project': 'common', 'quarterly-review': 'hard', 'major-milestones': 'hard', 'consistency-30': 'hard', 'sustained-progress': 'epic', 'focus-100': 'epic', 'focus-1000': 'legendary', 'consistency-365': 'legacy' };
 
 /* ======================= ALERTS ======================= */
 export function refreshAlerts(userId) {
@@ -451,7 +498,7 @@ export function today(userId) {
   const from = startOfDay(k, tz); const to = startOfDay(addDays(k, 1), tz);
   const cal = calendarRange(userId, from, to);
   const schedule = cal.items.filter((i) => i.source === 'event' || i.source === 'focus').filter((i) => i.kind !== 'time_block' || true);
-  const openTasks = rows(userId, 'tasks', 'done_at IS NULL');
+  const openTasks = rows(userId, 'tasks', OPEN_TASK);
   const overdue = openTasks.filter((t) => t.due_at && dayKey(new Date(t.due_at), tz) < k);
   const dueToday = openTasks.filter((t) => t.due_at && dayKey(new Date(t.due_at), tz) === k);
   const P = { high: 0, medium: 1, low: 2 };

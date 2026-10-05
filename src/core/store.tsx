@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
 import type { Deadline, Goal, Milestone, Progress, Project, Task } from './types';
 import { useToast } from '../ui/overlay';
+import { setCustomDomains } from './domains';
 
 /**
  * Core store: the user's goals/projects/milestones/open tasks/deadlines from the server, plus a global `version`.
@@ -35,8 +36,8 @@ export function CoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let live = true;
     if (first.current) setStatus('loading');
-    api.get<typeof data & { user: unknown }>('/bootstrap')
-      .then((d) => { if (!live) return; setData({ tasks: d.tasks, goals: d.goals, projects: d.projects, milestones: d.milestones, deadlines: d.deadlines, progress: d.progress }); setStatus('ready'); setError(null); first.current = false; })
+    api.get<typeof data & { user: unknown; customDomains: Parameters<typeof setCustomDomains>[0] }>('/bootstrap')
+      .then((d) => { if (!live) return; setCustomDomains(d.customDomains ?? []); setData({ tasks: d.tasks, goals: d.goals, projects: d.projects, milestones: d.milestones, deadlines: d.deadlines, progress: d.progress }); setStatus('ready'); setError(null); first.current = false; })
       .catch((e: ApiError) => { if (!live) return; setError(e.message); if (first.current) setStatus('error'); });
     return () => { live = false; };
   }, [version]);

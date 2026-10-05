@@ -49,7 +49,9 @@ Rules you must follow:
 5. Be calm and non-judgmental about workload. No gamification, no scores, no shaming. Distinguish observations from conclusions and mention sample size/confidence for patterns.
 6. Dates: use ISO-8601 with offset or local "YYYY-MM-DDTHH:mm" (interpreted in the user's timezone). Respect the working hours and never schedule over existing events.
 7. Use create_memory only when the user explicitly asks you to remember something or states a stable preference.
-8. Study works without you; you may operate it via get_domain_data and the normal tools.`;
+8. Study works without you; you may operate it via get_domain_data and the normal tools.
+9. Custom domains: use get_domains/create_custom_domain, then pass the domain name on create calls. Study plans: read first, then propose ONE reorganize_plan with create_task operations. Measurable goals (“save ₹1 lakh”, “read 12 books”) need measure_type, target_value, unit, direction and method; progress is derived from logged measurements — never set it. Use open_page to take the user to a page.
+10. Never say you created/changed something unless a tool result in this turn reported it verified.`;
 
 /** Rebuild model-visible history: only user/assistant text (cheap), last N turns. */
 function history(userId, conversationId) {
@@ -96,7 +98,7 @@ export async function runAgent({ user, conversationId, message, emit, signal }) 
           const queueIt = ['confirm', 'strong'].includes(tool.risk) || (tool.risk === 'safe' && (batchHasConfirm || queued.length > 0 || confirmCreates));
           if (tool.risk === 'read') {
             result = tool.run(userId, args);
-            step(labelFor(tool.name), 'ok');
+            step(tool.name === 'open_page' ? `Open ${result.path}` : labelFor(tool.name), 'ok', tool.name === 'open_page' ? { path: result.path } : {});
           } else if (queueIt) {
             const ops = tool.name === 'reorganize_plan' ? expandBatch(args) : [{ tool: tool.name, args }];
             for (const op of ops) { validateOp(userId, op); queued.push({ ...op, strong: toolByName(op.tool).risk === 'strong', summary: describeOp(userId, op.tool, op.args) }); }
