@@ -17,6 +17,8 @@ interface AuthValue {
   status: Status; user: User | null; settings: Settings; tz: string;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  googleLogin: () => void;
+  googleConfigured: () => Promise<boolean>;
   logout: () => Promise<void>;
   saveSettings: (patch: Partial<Settings>) => Promise<Settings>;
   setUser: (u: User) => void;
@@ -47,13 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.post<User>('/auth/register', { name, email, password, timezone: FALLBACK.timezone })); setStatus('authed');
   }, []);
   const logout = useCallback(async () => { await api.post('/auth/logout'); setUser(null); setStatus('anon'); }, []);
+  const googleLogin = useCallback(() => {
+    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+    window.location.href = `/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
+  }, []);
+  const googleConfigured = useCallback(async () => {
+    try { return (await api.get<{ configured: boolean }>('/auth/google/config')).configured; }
+    catch { return false; }
+  }, []);
   const saveSettings = useCallback(async (patch: Partial<Settings>) => {
     const s = await api.patch<Settings>('/settings', patch);
     setUser((u) => (u ? { ...u, settings: s } : u));
     return s;
   }, []);
 
-  const value = useMemo(() => ({ status, user, settings, tz: settings.timezone, login, register, logout, saveSettings, setUser }), [status, user, settings, login, register, logout, saveSettings]);
+  const value = useMemo(() => ({ status, user, settings, tz: settings.timezone, login, register, googleLogin, googleConfigured, logout, saveSettings, setUser }), [status, user, settings, login, register, googleLogin, googleConfigured, logout, saveSettings]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export function useAuth() { const v = useContext(Ctx); if (!v) throw new Error('useAuth outside AuthProvider'); return v; }

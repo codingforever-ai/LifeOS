@@ -2,5 +2,14 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "GOOGLE_CLIENT_ID",
+      "description": "Google OAuth 2.0 Client ID from Google Cloud Console → Credentials. Required for Google sign-in to work."
+    },
+    {
+      "name": "GOOGLE_CLIENT_SECRET",
+      "description": "Google OAuth 2.0 Client Secret from Google Cloud Console → Credentials. Server-side only. Required for Google sign-in to work."
+    }
+  ]
 }

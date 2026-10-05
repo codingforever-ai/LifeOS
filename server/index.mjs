@@ -2,7 +2,8 @@ import http from 'node:http';
 import { migrate, db } from './db.mjs';
 import { ENTITIES, READONLY_VIA_API } from './schema.mjs';
 import { HttpError, all, archive, complete, create, get, getSettings, getRaw, list, logActivity, remove, reopen, restore, saveSettings, update, userTz } from './crud.mjs';
-import { authenticate, changePassword, deleteAccount, login, logout, register, revokeOtherSessions, sessionUser } from './auth.mjs';
+import { authenticate, changePassword, deleteAccount, friendlyGoogleError, googleFinish, googleStart, login, logout, register, revokeOtherSessions, sessionUser } from './auth.mjs';
+import { googleConfigured } from './google.mjs';
 import { achievements, alertList, calendarRange, capacity, compass, computeProgress, contextFor, goalHealth, habitsWithStats, patterns, planVsActual, projectHealth, relationshipMap, rows, today, whyBehind } from './derive.mjs';
 import { experimentAction, experimentResults, exportAll, focusAction, focusStart, importAll, inboxConvert, integrationConnect, integrationDisconnect, integrations, rememberSearch, searchAll, timeline } from './services.mjs';
 import { academicOverview, financeOverview, fitnessOverview, personalOverview, reviewFacts, studyOverview, workOverview } from './domains.mjs';
@@ -29,6 +30,28 @@ route('POST', '/api/auth/register', ({ body, req, res }) => register(body, req, 
 route('POST', '/api/auth/login', ({ body, req, res }) => login(body, req, res), { auth: false });
 route('POST', '/api/auth/logout', ({ req, res }) => { logout(req, res); return { ok: true }; }, { auth: false });
 route('GET', '/api/auth/me', ({ user }) => sessionUser(user));
+route('GET', '/api/auth/google/config', () => ({ configured: googleConfigured() }), { auth: false });
+// Google OAuth start: redirects the browser straight to Google's consent screen.
+route('GET', '/api/auth/google', ({ query, req, res }) => {
+  const url = googleStart(query, req, res);
+  res.writeHead(302, { location: url });
+  res.end();
+  return null; // send() bails — headers already sent
+}, { auth: false });
+// Google OAuth callback: Google redirects here with ?code=&state=. Exchanges, links/creates user,
+// sets the session cookie, then redirects to the app. Always redirects (never JSON).
+route('GET', '/api/auth/google/callback', async ({ query, req, res }) => {
+  try {
+    await googleFinish(query, req, res);
+    res.writeHead(302, { location: '/' });
+    res.end();
+  } catch (e) {
+    const msg = encodeURIComponent(friendlyGoogleError(e));
+    res.writeHead(302, { location: `/?auth_error=${msg}` });
+    res.end();
+  }
+  return null; // send() bails — headers already sent by the redirect
+}, { auth: false });
 route('POST', '/api/auth/password', ({ user, body, req, res }) => { changePassword(user, body, req, res); return { ok: true }; });
 route('POST', '/api/auth/revoke-others', ({ user, req }) => ({ revoked: revokeOtherSessions(user, req) }));
 route('POST', '/api/auth/delete', ({ user, body, res }) => { deleteAccount(user, body, res); return { ok: true }; });

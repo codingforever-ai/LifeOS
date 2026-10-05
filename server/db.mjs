@@ -68,6 +68,17 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '004_google_oauth',
+    up() {
+      // Link external identity providers to existing accounts without losing data.
+      // password_hash stays NOT NULL; OAuth-only users store the sentinel '!oauth'
+      // so verifyPassword() correctly rejects password login for them.
+      for (const col of ['provider TEXT', 'provider_id TEXT', 'picture TEXT']) {
+        try { db.exec(`ALTER TABLE users ADD COLUMN ${col}`); } catch (e) { if (!e.message.includes('duplicate column')) throw e; }
+      }
+    },
+  },
 ];
 
 export function migrate() {
