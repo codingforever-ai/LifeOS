@@ -1,53 +1,66 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCore } from '../../core/store';
-import { demoCalendar, demoRecentSearches } from '../../data/demo';
-import { DOMAINS } from '../../core/domains';
-import { BubbleIcon, EmptyState, PageHeader, Row, SearchField, Section, Surface, Tabs } from '../../ui/primitives';
-import type { IconName } from '../../ui/Icon';
-import { fmtShort } from '../../lib/date';
+import { useApi, useCore } from '../../core/store';
+import { api } from '../../api/client';
+import { useAuth } from '../../core/auth';
+import { BubbleIcon, EmptyState, PageHeader, Row, SearchField, Section, Surface, LoadingState, ErrorState, Badge } from '../../ui/primitives';
+import { fmt } from '../../lib/tz';
 
-type Cat = 'all' | 'tasks' | 'goals' | 'projects' | 'events' | 'domains';
-interface Hit { id: string; cat: Exclude<Cat, 'all'>; title: string; sub: string; icon: IconName; path: string }
+interface SearchGroup { entity: string; label: string; area: string; total: number; items: { id: string; entity: string; title: string; sub: string; domain: string; updated_at: string; score: number }[] }
+interface SearchResult { q: string; groups: SearchGroup[]; total: number; semantic: boolean }
 
-/** Phase 1: simple substring match over local data. Semantic search plugs in behind the same `Hit` shape. */
+const ENTITY_PATH: Record<string, string> = { tasks: '/tasks', goals: '/goals', projects: '/projects', events: '/calendar', deadlines: '/deadlines', notes: '/notes', habits: '/habits', memories: '/memory', decisions: '/decisions', experiments: '/experiments', accomplishments: '/accomplishments' };
+
 export default function SearchPage() {
-  const { tasks, goals, projects } = useCore();
+  const { settings, saveSettings } = useAuth();
+  const { bump } = useCore();
   const nav = useNavigate();
   const input = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState('');
-  const [cat, setCat] = useState<Cat>('all');
+  const [debounced, setDebounced] = useState('');
+  const { data, loading, error } = useApi<SearchResult>(debounced ? `/search?q=${encodeURIComponent(debounced)}` : null);
+
   useEffect(() => { input.current?.focus(); }, []);
+  useEffect(() => { const t = setTimeout(() => setDebounced(q), 300); return () => clearTimeout(t); }, [q]);
 
-  const all = useMemo<Hit[]>(() => [
-    ...tasks.map((t): Hit => ({ id: t.id, cat: 'tasks', title: t.title, sub: 'Task', icon: 'tasks', path: '/tasks' })),
-    ...goals.map((g): Hit => ({ id: g.id, cat: 'goals', title: g.title, sub: 'Goal', icon: 'goals', path: '/goals' })),
-    ...projects.map((p): Hit => ({ id: p.id, cat: 'projects', title: p.title, sub: 'Project', icon: 'projects', path: '/projects' })),
-    ...demoCalendar.map((e): Hit => ({ id: e.id, cat: 'events', title: e.title, sub: `Calendar · ${fmtShort(e.date)}`, icon: 'calendar', path: '/calendar' })),
-    ...DOMAINS.map((d): Hit => ({ id: d.id, cat: 'domains', title: d.name, sub: 'Domain', icon: 'domains', path: '/domains' })),
-  ], [tasks, goals, projects]);
-
-  const term = q.trim().toLowerCase();
-  const hits = term ? all.filter((h) => (cat === 'all' || h.cat === cat) && (h.title.toLowerCase().includes(term))) : [];
+  const recent = settings.recentSearches ?? [];
 
   return (
     <>
       <PageHeader eyebrow="Search" title="Find anything" />
       <div className="search-bar">
         <SearchField ref={input} placeholder="Search tasks, goals, events…" aria-label="Search LifeOS" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setQ(''); }} />
-        <Tabs<Cat> label="Search category" value={cat} onChange={setCat} options={[{ value: 'all', label: 'All' }, { value: 'tasks', label: 'Tasks' }, { value: 'goals', label: 'Goals' }, { value: 'projects', label: 'Projects' }, { value: 'events', label: 'Events' }, { value: 'domains', label: 'Domains' }]} />
       </div>
 
-      {!term ? (
-        <Section title="Recent searches">
-          <div className="chips">{demoRecentSearches.map((r) => <button key={r} type="button" className="chip" onClick={() => setQ(r)}>{r}</button>)}</div>
-        </Section>
-      ) : hits.length === 0 ? (
-        <Surface style={{ marginTop: 24 }}><EmptyState icon="search" title={`No results for “${q}”`} text="Try a different word or category. Semantic search will understand meaning in a later phase." /></Surface>
+      {!debounced ? (
+        recent.length > 0 && (
+          <Section title="Recent searches">
+            <div className="chips">{recent.map((r) => <button key={r} type="button" className="chip" onClick={() => setQ(r)}>{r}</button>)}</div>
+          </Section>
+        )
+      ) : loading ? (
+        <Surface><LoadingState label="Searching" /></Surface>
+      ) : error ? (
+        <Surface><ErrorState text={error} /></Surface>
+      ) : data && data.total > 0 ? (
+        <>
+          {data.groups.map((g) => g.items.length > 0 && (
+            <Section key={g.entity} title={`${g.label} (${g.total})`}>
+              <Surface pad="none"><ul className="list divided">
+                {g.items.slice(0, 8).map((item) => (
+                  <li key={item.id}><Row
+                    leading={<BubbleIcon name="search" tone="graphite" size="sm" />}
+                    title={item.title}
+                    subtitle={item.sub ? `${item.sub} · ${fmt.date(item.updated_at, settings.timezone)}` : fmt.date(item.updated_at, settings.timezone)}
+                    onClick={() => { const p = ENTITY_PATH[item.entity]; if (p) nav(p); }}
+                  /></li>
+                ))}
+              </ul></Surface>
+            </Section>
+          ))}
+        </>
       ) : (
-        <Section title={`${hits.length} ${hits.length === 1 ? 'result' : 'results'}`}>
-          <Surface pad="none"><ul className="list divided" aria-live="polite">{hits.slice(0, 20).map((h) => <li key={h.cat + h.id}><Row leading={<BubbleIcon name={h.icon} tone="graphite" size="sm" />} title={h.title} subtitle={h.sub} onClick={() => nav(h.path)} /></li>)}</ul></Surface>
-        </Section>
+        <Surface><EmptyState icon="search" title={`No results for "${q}"`} text="Try a different word or phrase." /></Surface>
       )}
     </>
   );

@@ -1,63 +1,86 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, BubbleIcon, Button, Badge, IconButton, Surface } from '../../ui/primitives';
+import { useApi, useCore } from '../../core/store';
+import { api, streamAgent, type AgentEvent, type AgentAction } from '../../api/client';
+import { Alert, Badge, BubbleIcon, Button, IconButton, Surface, LoadingState, ErrorState } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
-import type { AgentMessage, ToolCall } from './contract';
-import { demoAgent as agent } from './demoAgent';
 
-const SUGGESTIONS = ['Plan my afternoon', 'What should I move off today?', 'Summarise my week'];
+interface ChatMsg { id: string; role: 'user' | 'assistant'; text: string; steps: { label: string; status: string }[]; action: AgentAction | null; failed: boolean }
+interface Status { configured: boolean; provider: string; model: string | null; enabled: boolean; quota: { used: number; limit: number } }
 
-function Thinking() {
-  return <div className="bubble-msg agent thinking" role="status" aria-label="Agent is thinking"><i /><i /><i /></div>;
-}
-
-function ProposalCard({ m, onDecide }: { m: Extract<AgentMessage, { kind: 'proposal' }>; onDecide: (id: string, ok: boolean) => void }) {
-  const { call } = m;
-  return (
-    <Surface tone="raised" className="tool-card">
-      <div className="tool-head">
-        <span className="caption mono">{call.tool}</span>
-        <Badge tone={call.risk === 'write' ? 'warn' : undefined}>{call.risk === 'write' ? 'Changes data' : 'Read only'}</Badge>
-      </div>
-      <h3>{call.title}</h3>
-      <dl className="facts">{call.args.map((a) => <><dt key={a.label}>{a.label}</dt><dd>{a.value}</dd></>)}</dl>
-      {m.state === 'pending' ? (
-        <div className="tool-actions">
-          <Button variant="primary" size="sm" icon="check" onClick={() => onDecide(m.id, true)}>Confirm</Button>
-          <Button variant="ghost" size="sm" onClick={() => onDecide(m.id, false)}>Dismiss</Button>
-        </div>
-      ) : <Badge tone={m.state === 'confirmed' ? 'ok' : undefined}>{m.state === 'confirmed' ? 'Confirmed' : 'Dismissed'}</Badge>}
-    </Surface>
-  );
-}
+const SUGGESTIONS = ['Plan my afternoon', 'What should I move off today?', 'What am I behind on?', 'Create a task to review the design tomorrow at 10 AM'];
 
 export default function AgentPage() {
-  const [msgs, setMsgs] = useState<AgentMessage[]>([]);
+  const { bump } = useCore();
+  const { data: status, loading, error, reload } = useApi<Status>('/agent/status');
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs, busy]);
 
   const send = async (prompt: string) => {
     const p = prompt.trim();
     if (!p || busy) return;
-    setText('');
-    setMsgs((m) => [...m, { id: `u${Date.now()}`, role: 'user', text: p }]);
-    setBusy(true);
-    const out = await agent.respond(p);
-    setMsgs((m) => [...m, ...out]);
+    setText(''); setBusy(true);
+    const userMsg: ChatMsg = { id: `u${Date.now()}`, role: 'user', text: p, steps: [], action: null, failed: false };
+    setMsgs((m) => [...m, userMsg]);
+
+    const ac = new AbortController(); abortRef.current = ac;
+    let curSteps: { label: string; status: string }[] = [];
+    let curAction: AgentAction | null = null;
+    let convId: string | undefined;
+
+    streamAgent(p, undefined, (e: AgentEvent) => {
+      if (e.type === 'conversation') convId = e.id;
+      else if (e.type === 'step') { curSteps = [...curSteps, { label: e.label, status: e.status }]; setMsgs((m) => m.map((x) => x.id === userMsg.id ? { ...x, steps: curSteps } : x)); }
+      else if (e.type === 'done') {
+        const msg: ChatMsg = { id: `a${Date.now()}`, role: 'assistant', text: e.text, steps: curSteps, action: e.action, failed: e.failed };
+        setMsgs((m) => [...m, msg]);
+        if (!e.failed) bump();
+      }
+      else if (e.type === 'error') {
+        const msg: ChatMsg = { id: `a${Date.now()}`, role: 'assistant', text: e.error, steps: curSteps, action: null, failed: true };
+        setMsgs((m) => [...m, msg]);
+      }
+    }, ac.signal);
+
+    // Wait for stream to finish (streamAgent resolves when done)
+    await new Promise((r) => setTimeout(r, 100));
     setBusy(false);
   };
 
-  const decide = async (mid: string, ok: boolean) => {
-    let call: ToolCall | undefined;
-    setMsgs((ms) => ms.map((m) => { if (m.id === mid && m.role === 'agent' && m.kind === 'proposal') { call = m.call; return { ...m, state: ok ? 'confirmed' : 'dismissed' }; } return m; }));
-    if (!ok || !call) return;
-    setBusy(true);
-    const result = await agent.execute(call);
-    setMsgs((m) => [...m, { id: `r${Date.now()}`, role: 'agent', kind: 'result', result }]);
-    setBusy(false);
+  const applyAction = async (id: string) => {
+    try { await api.post(`/agent/actions/${id}/apply`, { confirm: true }); bump(); setMsgs((m) => m.map((x) => x.action?.id === id ? { ...x, action: { ...x.action!, status: 'applied' } } : x)); }
+    catch (e) { setMsgs((m) => m.map((x) => x.action?.id === id ? { ...x, action: { ...x.action!, status: 'failed' } } : x)); }
   };
+  const rejectAction = async (id: string) => {
+    try { await api.post(`/agent/actions/${id}/reject`); setMsgs((m) => m.map((x) => x.action?.id === id ? { ...x, action: { ...x.action!, status: 'rejected' } } : x)); }
+    catch { /* ignore */ }
+  };
+
+  if (loading) return <div className="agent"><LoadingState label="Checking Agent status" /></div>;
+  if (error) return <div className="agent"><ErrorState text={error} onRetry={reload} /></div>;
+
+  if (!status?.configured) return (
+    <div className="agent">
+      <div className="agent-intro page-enter">
+        <BubbleIcon name="agent" size="xl" />
+        <h1>Agent not configured</h1>
+        <Alert tone="accent" icon="info">The server needs AI_API_KEY (and optionally AI_BASE_URL / AI_MODEL) to run the Agent. Everything else in LifeOS keeps working.</Alert>
+      </div>
+    </div>
+  );
+  if (!status?.enabled) return (
+    <div className="agent">
+      <div className="agent-intro page-enter">
+        <BubbleIcon name="agent" size="xl" />
+        <h1>Agent is turned off</h1>
+        <Alert tone="accent" icon="info">Enable the Agent in Settings → AI / Agent.</Alert>
+      </div>
+    </div>
+  );
 
   return (
     <div className="agent">
@@ -66,27 +89,51 @@ export default function AgentPage() {
           <div className="agent-intro page-enter">
             <BubbleIcon name="agent" size="xl" />
             <h1>How can I help?</h1>
-            <p className="muted">Ask about your day, plans or priorities. In the future, I’ll act across your whole life through structured tools.</p>
+            <p className="muted">Ask about your day, plans or priorities. I'll read your data, propose changes, and act with your confirmation.</p>
             <div className="chips">{SUGGESTIONS.map((s) => <button key={s} type="button" className="chip" onClick={() => send(s)}>{s}</button>)}</div>
-            <Alert tone="accent" icon="info">Demo mode: responses are scripted and the Agent can’t change anything yet.</Alert>
+            <p className="faint small">Model: {status.model} · {status.quota.used}/{status.quota.limit} messages today</p>
           </div>
         ) : (
           <div className="thread" aria-live="polite">
             {msgs.map((m) => (
               <div key={m.id} className={`msg ${m.role}`}>
                 {m.role === 'user' && <div className="bubble-msg user">{m.text}</div>}
-                {m.role === 'agent' && m.kind === 'text' && <div className="bubble-msg agent">{m.text}</div>}
-                {m.role === 'agent' && m.kind === 'proposal' && <><div className="bubble-msg agent">{m.text}</div><ProposalCard m={m} onDecide={decide} /></>}
-                {m.role === 'agent' && m.kind === 'result' && (
-                  <Surface className="tool-card" tone="accent">
-                    <div className="tool-head"><span className="caption">Result</span><Badge tone={m.result.ok ? 'ok' : 'danger'}>{m.result.ok ? 'Done' : 'Failed'}</Badge></div>
-                    <p>{m.result.summary}</p>
-                    {m.result.details?.map((d) => <p key={d} className="muted small">{d}</p>)}
-                  </Surface>
+                {m.role === 'assistant' && (
+                  <>
+                    <div className="bubble-msg agent">{m.text}</div>
+                    {m.steps.length > 0 && (
+                      <Surface className="tool-card" tone="raised">
+                        {m.steps.map((s, i) => (
+                          <div key={i} className="step-line" data-status={s.status}>
+                            <Icon name={s.status === 'ok' ? 'check' : s.status === 'failed' ? 'alert' : 'sparkle'} />
+                            <span>{s.label}</span>
+                          </div>
+                        ))}
+                      </Surface>
+                    )}
+                    {m.action && (
+                      <Surface className="tool-card" tone={m.action.status === 'applied' ? 'accent' : 'raised'}>
+                        <div className="tool-head">
+                          <span className="caption mono">{m.action.strong ? 'Needs confirmation' : 'Action'}</span>
+                          <Badge tone={m.action.status === 'applied' ? 'ok' : m.action.status === 'failed' ? 'danger' : m.action.status === 'rejected' ? undefined : 'warn'}>
+                            {m.action.status}
+                          </Badge>
+                        </div>
+                        <p className="small">{m.action.request}</p>
+                        {m.action.operations.map((op, i) => <p key={i} className="muted small">• {op.tool}: {op.summary}</p>)}
+                        {m.action.status === 'proposed' && (
+                          <div className="tool-actions">
+                            <Button variant="primary" size="sm" icon="check" onClick={() => applyAction(m.action!.id)}>{m.action.strong ? 'Confirm' : 'Apply'}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => rejectAction(m.action!.id)}>Dismiss</Button>
+                          </div>
+                        )}
+                      </Surface>
+                    )}
+                  </>
                 )}
               </div>
             ))}
-            {busy && <div className="msg agent"><Thinking /></div>}
+            {busy && <div className="msg agent"><div className="bubble-msg agent thinking"><i /><i /><i /></div></div>}
             <div ref={end} />
           </div>
         )}
@@ -94,7 +141,7 @@ export default function AgentPage() {
 
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(text); }}>
         <Icon name="agent" className="composer-icon" />
-        <input className="composer-input" aria-label="Message the Agent" placeholder="Ask LifeOS anything…" value={text} onChange={(e) => setText(e.target.value)} />
+        <input className="composer-input" aria-label="Message the Agent" placeholder="Ask LifeOS anything…" value={text} onChange={(e) => setText(e.target.value)} disabled={busy} />
         <IconButton icon="send" label="Send" type="submit" disabled={!text.trim() || busy} />
       </form>
     </div>
