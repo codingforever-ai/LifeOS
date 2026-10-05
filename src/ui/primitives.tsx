@@ -20,9 +20,9 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'md' | 'sm';
   icon?: IconName;
 }
-export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ variant = 'secondary', size = 'md', icon, children, type = 'button', ...rest }, ref) {
+export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ variant = 'secondary', size = 'md', icon, children, type = 'button', className, ...rest }, ref) {
   return (
-    <button ref={ref} type={type} className="btn" data-variant={variant} data-size={size} {...rest}>
+    <button ref={ref} type={type} className={className ? `btn ${className}` : 'btn'} data-variant={variant} data-size={size} {...rest}>
       {icon && <Icon name={icon} />}
       {children}
     </button>

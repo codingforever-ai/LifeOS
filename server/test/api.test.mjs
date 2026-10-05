@@ -143,7 +143,7 @@ test('capacity, calendar conflicts, compass and patterns respond', async () => {
   assert.ok((await A.get('/api/compass')).json.allocation);
   const pat = (await A.get('/api/patterns')).json; assert.ok(Array.isArray(pat.needsMoreData), 'declines to guess without evidence');
   assert.ok((await A.get('/api/today')).json.state);
-  assert.equal((await A.get('/api/achievements')).json.length, 7);
+  assert.equal((await A.get('/api/achievements')).json.length, 9);
 });
 
 async function chat(client, message, conversationId) {

@@ -7,6 +7,7 @@ import { greeting } from '../../lib/date';
 import { Badge, BubbleIcon, Button, ErrorState, LoadingState, ProgressBar, Row, Section, Surface } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { TaskDetail, TaskRow } from '../tasks/TaskParts';
+import { api } from '../../api/client';
 import type { Task } from '../../core/types';
 
 interface TodayData {
@@ -37,6 +38,15 @@ export default function TodayPage() {
   const nav = useNavigate();
   const [open, setOpen] = useState<Task | null>(null);
   const { data, loading, error, reload } = useApi<TodayData>('/today');
+  const [quick, setQuick] = useState('');
+  const [busy, setBusy] = useState(false);
+  const addQuick = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quick.trim();
+    if (!title || busy) return;
+    setBusy(true);
+    try { await api.post('/e/tasks', { title }); setQuick(''); reload(); } finally { setBusy(false); }
+  };
 
   if (loading && !data) return <div style={{ padding: 32 }}><LoadingState rows={4} /></div>;
   if (error && !data) return <ErrorState text={error} onRetry={reload} />;
@@ -62,6 +72,10 @@ export default function TodayPage() {
         <h1>{greeting(now)}, {user?.name ?? 'there'}.</h1>
         <p className="muted lead">{t.why?.[0] ?? STATE_MSG[t.state] ?? STATE_MSG.normal}</p>
       </header>
+
+      <form onSubmit={addQuick} className="search-bar" style={{ marginBottom: 16 }}>
+        <input className="input" style={{ flex: 1 }} aria-label="Quick add task" placeholder="Quick add a task for today… (Enter)" value={quick} onChange={(e) => setQuick(e.target.value)} disabled={busy} />
+      </form>
 
       <div className="today-grid">
         <div className="today-main stagger">
