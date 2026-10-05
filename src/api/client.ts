@@ -28,7 +28,7 @@ export const api = {
 
 export type AgentEvent =
   | { type: 'conversation'; id: string }
-  | { type: 'thinking' }
+  | { type: 'thinking'; label?: string }
   | { type: 'step'; label: string; status: 'ok' | 'failed' | 'proposed'; entity?: string; id?: string }
   | { type: 'done'; conversationId: string; messageId: string; text: string; action: AgentAction | null; failed: boolean }
   | { type: 'error'; status: number; error: string; code?: string };

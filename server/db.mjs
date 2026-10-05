@@ -13,6 +13,26 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeou
 /** Ordered, append-only migrations. Never edit an applied migration; add a new one. */
 const MIGRATIONS = [
   {
+    id: '002_byok',
+    up() {
+      db.exec(`
+        CREATE TABLE ai_keys (
+          id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          provider TEXT NOT NULL DEFAULT 'gemini',
+          key_enc TEXT NOT NULL,
+          key_hint TEXT NOT NULL,
+          model TEXT NOT NULL DEFAULT 'gemini-3.8-flash',
+          base_url TEXT NOT NULL DEFAULT 'https://generativelanguage.googleapis.com/v1beta/openai',
+          status TEXT NOT NULL DEFAULT 'active',
+          tested_at TEXT,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+          UNIQUE(user_id, provider)
+        );
+        CREATE INDEX idx_ai_keys_user ON ai_keys(user_id);
+      `);
+    },
+  },
+  {
     id: '001_core',
     up() {
       db.exec(`

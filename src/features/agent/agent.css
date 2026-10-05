@@ -1,0 +1,92 @@
+/* ── AURA Visual Component Library ── */
+.aura-card { max-width: 460px; animation: lo-fade-up var(--dur) var(--ease-out) both; }
+
+/* Action Card */
+.action-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.action-card-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--ok); font-weight: 700; font-size: 14px; flex: none; }
+.action-card-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.action-card-list { display: grid; gap: 6px; margin: 0 0 12px 0; }
+.action-card-list li { font-size: var(--fs-small); color: var(--text-2); display: flex; gap: 8px; }
+.action-card-bullet { color: var(--accent-electric); }
+.aura-card-link { font-size: var(--fs-small); color: var(--accent-electric); font-weight: 550; }
+.aura-card-link:hover { color: var(--accent-lavender); }
+
+/* Goal Card */
+.goal-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.goal-card-top h4 { font-size: var(--fs-body); font-weight: 600; }
+.goal-card-icon { font-size: 1.25rem; }
+.goal-card-progress { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; }
+.goal-card-meta { display: grid; gap: 4px; }
+.goal-card-value { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.02em; }
+.goal-card-actions { display: flex; gap: 8px; }
+
+/* Roadmap */
+.roadmap-head { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.roadmap-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.roadmap-path { display: grid; gap: 0; }
+.roadmap-node { display: grid; grid-template-columns: 32px 1fr; gap: 12px; position: relative; }
+.roadmap-dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--surface-4); font-size: 12px; color: var(--text-3); flex: none; z-index: 1; background: var(--surface-1); }
+.roadmap-node.done .roadmap-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.roadmap-node.current .roadmap-dot { border-color: var(--accent-electric); color: var(--accent-electric); box-shadow: 0 0 0 4px var(--accent-soft); }
+.roadmap-line { position: absolute; left: 13px; top: 28px; bottom: -4px; width: 2px; background: var(--surface-4); }
+.roadmap-node:last-child .roadmap-line { display: none; }
+.roadmap-label { padding: 4px 0 16px; font-size: var(--fs-small); }
+
+/* Work Timeline */
+.work-timeline-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.work-timeline-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.work-timeline { display: grid; gap: 0; }
+.work-timeline-step { display: grid; grid-template-columns: 24px 1fr; gap: 12px; position: relative; }
+.work-timeline-marker { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; flex: none; z-index: 1; background: var(--surface-1); border: 1.5px solid var(--surface-4); color: var(--text-3); }
+.work-timeline-step.done .work-timeline-marker { background: var(--ok); border-color: var(--ok); color: #0a0a0c; }
+.work-timeline-step.active .work-timeline-marker { border-color: var(--accent-electric); color: var(--accent-electric); }
+.work-timeline-line { position: absolute; left: 10px; top: 22px; bottom: -4px; width: 1.5px; background: var(--surface-4); }
+.work-timeline-step:last-child .work-timeline-line { display: none; }
+.work-timeline-text { padding: 2px 0 14px; font-size: var(--fs-small); color: var(--text-2); }
+.work-timeline-step.done .work-timeline-text { color: var(--text); }
+
+/* Task List */
+.task-list-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.task-list-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.task-list-items { display: grid; gap: 8px; }
+.task-list-items li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-small); }
+.task-list-check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--surface-4); display: grid; place-items: center; font-size: 11px; flex: none; color: var(--text-3); }
+.task-list-items li.done .task-list-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.task-list-items li.done .task-list-title { color: var(--text-3); text-decoration: line-through; }
+.task-list-title { flex: 1; }
+
+/* Metric Card */
+.metric-card { text-align: center; }
+.metric-label { margin-bottom: 8px; }
+.metric-value { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; }
+.metric-trend { margin-top: 8px; font-size: var(--fs-small); color: var(--text-2); }
+
+/* Capacity Meter */
+.capacity-meter-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.capacity-meter-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.capacity-meter-stats { display: flex; justify-content: space-between; margin-top: 10px; font-size: var(--fs-small); }
+.capacity-meter-stats .danger { color: var(--danger); }
+.capacity-meter-warn { margin-top: 8px; font-size: var(--fs-small); color: var(--warn); }
+
+/* Confirmation Card */
+.confirmation-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.confirmation-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.confirmation-list { display: grid; gap: 6px; }
+.confirmation-list li { font-size: var(--fs-small); color: var(--text-2); }
+
+/* Result Card */
+.result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.result-head h4 { font-size: var(--fs-body); font-weight: 600; }
+
+/* Study Plan */
+.study-plan-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.study-plan-head h4 { font-size: var(--fs-body); font-weight: 600; }
+.study-plan-list { display: grid; gap: 12px; }
+.study-plan-list li { display: flex; gap: 12px; align-items: flex-start; }
+.study-plan-num { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-lavender); font-size: var(--fs-small); font-weight: 600; flex: none; }
+.study-plan-topic { font-weight: 550; }
+
+/* Agent status label */
+.agent-status-label { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); font-size: var(--fs-small); color: var(--text-2); animation: lo-fade var(--dur) var(--ease-out) both; }
+.agent-status-label .thinking { padding: 0; }
+.agent-status-label .thinking i { width: 5px; height: 5px; }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../core/auth';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { Alert, BubbleIcon, Button, Field, Input, PageHeader, Row, Surface, Switch, LoadingState, ErrorState } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
@@ -10,7 +10,7 @@ import { useToast } from '../../ui/overlay';
 type SectionId = 'appearance' | 'agent' | 'notifications' | 'privacy' | 'data' | 'account';
 const SECTIONS: { id: SectionId; title: string; sub: string; icon: IconName }[] = [
   { id: 'appearance', title: 'Appearance', sub: 'Theme, density, motion', icon: 'palette' },
-  { id: 'agent', title: 'AI / Agent', sub: 'Enable, confirm creates, quota', icon: 'agent' },
+  { id: 'agent', title: 'AI / AURA', sub: 'Gemini key, enable, quota', icon: 'agent' },
   { id: 'notifications', title: 'Notifications', sub: 'Reminders and summaries', icon: 'bell' },
   { id: 'privacy', title: 'Privacy', sub: 'Control what LifeOS knows', icon: 'lock' },
   { id: 'data', title: 'Data', sub: 'Export, import, delete', icon: 'database' },
@@ -65,9 +65,10 @@ export default function SettingsPage() {
         </div>
       </Overlay>
 
-      <Overlay open={open === 'agent'} onClose={() => setOpen(null)} title="AI / Agent" footer={<Button onClick={() => setOpen(null)}>Done</Button>}>
-        <div className="detail-grid">
-          <Row as="div" title="Enable Agent" subtitle="Turn the Agent on or off" trailing={<Switch label="Enable Agent" checked={settings.agent.enabled} onChange={(v) => patch({ agent: { ...settings.agent, enabled: v } }, v ? 'Agent enabled' : 'Agent disabled')} />} />
+      <Overlay open={open === 'agent'} onClose={() => setOpen(null)} title="AI / AURA" footer={<Button onClick={() => setOpen(null)}>Done</Button>}>
+        <ByokSettings />
+        <div className="detail-grid" style={{ marginTop: 20 }}>
+          <Row as="div" title="Enable AURA" subtitle="Turn the Agent on or off" trailing={<Switch label="Enable AURA" checked={settings.agent.enabled} onChange={(v) => patch({ agent: { ...settings.agent, enabled: v } }, v ? 'AURA enabled 🧠' : 'AURA disabled')} />} />
           <Row as="div" title="Confirm creates" subtitle="Ask before creating new records" trailing={<Switch label="Confirm creates" checked={settings.agent.confirmCreates} onChange={(v) => patch({ agent: { ...settings.agent, confirmCreates: v } }, 'Updated')} />} />
         </div>
       </Overlay>
@@ -101,5 +102,130 @@ export default function SettingsPage() {
         </div>
       </Overlay>
     </>
+  );
+}
+
+/* ── BYOK (Bring Your Own Key) Settings ── */
+interface KeyInfo { configured: boolean; provider: string; model: string; baseUrl: string; keyHint: string | null; status: string | null; testedAt: string | null }
+
+function ByokSettings() {
+  const toast = useToast();
+  const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showInput, setShowInput] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const load = () => {
+    api.get<KeyInfo>('/ai/key').then((d) => { setKeyInfo(d); setShowInput(!d.configured); setLoading(false); }).catch(() => setLoading(false));
+  };
+  useState(() => { load(); });
+
+  const save = async () => {
+    if (!apiKey.trim()) return;
+    setSaving(true);
+    try {
+      await api.post('/ai/key', { apiKey });
+      setApiKey('');
+      setShowInput(false);
+      load();
+      toast('Gemini key saved securely 🔒');
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Could not save key.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const test = async () => {
+    setTesting(true);
+    try {
+      const r = await api.post<{ ok: boolean; model: string }>('/ai/test');
+      toast(`Connected ✓ Model: ${r.model}`);
+      load();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Connection failed.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const disconnect = async () => {
+    try {
+      await api.del('/ai/key');
+      load();
+      toast('Key disconnected');
+    } catch { toast('Could not disconnect.'); }
+  };
+
+  if (loading) return <div style={{ padding: 16 }}><LoadingState rows={2} label="Loading AI settings" /></div>;
+
+  return (
+    <div className="byok-section">
+      <div className="byok-header">
+        <div className="byok-provider">
+          <span className="byok-provider-icon">✦</span>
+          <div>
+            <div className="byok-provider-name">AURA AI</div>
+            <div className="muted small">Gemini · BYOK</div>
+          </div>
+        </div>
+        {keyInfo?.configured ? (
+          <Badge tone="ok">Connected ✓</Badge>
+        ) : (
+          <Badge>Not connected</Badge>
+        )}
+      </div>
+
+      {keyInfo?.configured ? (
+        <div className="byok-connected">
+          <div className="byok-info-row">
+            <span className="caption">Model</span>
+            <span className="mono small">{keyInfo.model}</span>
+          </div>
+          <div className="byok-info-row">
+            <span className="caption">Key</span>
+            <span className="mono small">••••{keyInfo.keyHint}</span>
+          </div>
+          {keyInfo.testedAt && (
+            <div className="byok-info-row">
+              <span className="caption">Last tested</span>
+              <span className="small">{new Date(keyInfo.testedAt).toLocaleString()}</span>
+            </div>
+          )}
+          <div className="byok-actions">
+            <Button size="sm" onClick={test} disabled={testing}>{testing ? 'Testing…' : 'Test Connection'}</Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowInput(true)}>Change Key</Button>
+            <Button size="sm" variant="danger" onClick={disconnect}>Disconnect</Button>
+          </div>
+        </div>
+      ) : null}
+
+      {showInput && (
+        <div className="byok-input-area">
+          {!keyInfo?.configured && (
+            <Alert tone="accent" icon="info">
+              AURA uses your own Gemini API key (BYOK). Get one from{' '}
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="link">
+                Google AI Studio
+              </a>
+              . Your key is stored encrypted and never exposed to the client.
+            </Alert>
+          )}
+          <Field label="Gemini API Key" id="ai-key">
+            <Input id="ai-key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="AIza…" autoComplete="off" />
+          </Field>
+          <div className="byok-actions">
+            <Button size="sm" variant="primary" onClick={save} disabled={!apiKey.trim() || saving}>{saving ? 'Saving…' : 'Save Key'}</Button>
+            {keyInfo?.configured && <Button size="sm" variant="ghost" onClick={() => setShowInput(false)}>Cancel</Button>}
+          </div>
+        </div>
+      )}
+
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="link small" style={{ display: 'block', marginTop: 12 }}>
+        → Get a Gemini API key from Google AI Studio
+      </a>
+    </div>
   );
 }

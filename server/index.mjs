@@ -7,6 +7,7 @@ import { achievements, alertList, calendarRange, capacity, compass, computeProgr
 import { experimentAction, experimentResults, exportAll, focusAction, focusStart, importAll, inboxConvert, integrationConnect, integrationDisconnect, integrations, rememberSearch, searchAll, timeline } from './services.mjs';
 import { academicOverview, financeOverview, fitnessOverview, personalOverview, reviewFacts, studyOverview, workOverview } from './domains.mjs';
 import { actionHistory, agentStatus, applyAction, conversationMessages, listConversations, publicAction, rejectAction, runAgent, undoAction } from './agent/loop.mjs';
+import { saveKey, deleteKey, getKeyInfo, testKey } from './byok.mjs';
 import { addDays, dayKey, startOfDay } from './tz.mjs';
 
 migrate();
@@ -171,6 +172,12 @@ route('POST', '/api/agent/actions/:id/apply', ({ user, params, body }) => applyA
 route('POST', '/api/agent/actions/:id/reject', ({ user, params }) => rejectAction(user.id, params.id));
 route('POST', '/api/agent/actions/:id/undo', ({ user, params }) => undoAction(user.id, params.id));
 route('GET', '/api/agent/actions/:id', ({ user, params }) => publicAction(user.id, params.id));
+/* ---------- BYOK (AI key management) ---------- */
+route('GET', '/api/ai/key', ({ user }) => getKeyInfo(user.id));
+route('POST', '/api/ai/key', ({ user, body }) => saveKey(user.id, body ?? {}));
+route('DELETE', '/api/ai/key', ({ user }) => deleteKey(user.id));
+route('POST', '/api/ai/test', async ({ user }) => testKey(user.id));
+
 route('GET', '/api/health', () => ({ ok: true, time: new Date().toISOString() }), { auth: false });
 
 /* ---------- http plumbing ---------- */

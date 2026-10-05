@@ -7,6 +7,7 @@ import { HttpError, all, create, get, getSettings, hydrate, getRaw, update, user
 import { dayKey, startOfDay, addDays } from '../tz.mjs';
 import { capacity, rows } from '../derive.mjs';
 import { getProvider } from './provider.mjs';
+import { getKeyInfo } from '../byok.mjs';
 import { ALLOWED_IN_BATCH, TOOLS, describeOp, executeVerified, toolByName, toolDefs } from './tools.mjs';
 
 const MAX_STEPS = 8;
@@ -14,8 +15,8 @@ const DAILY_LIMIT = Number(process.env.AGENT_DAILY_LIMIT || 150); // future subs
 const trunc = (s, n) => (String(s).length > n ? `${String(s).slice(0, n)}…` : String(s));
 
 export function agentStatus(userId) {
-  const d = getProvider().describe(); const used = usedToday(userId);
-  return { configured: d.configured, provider: d.provider, model: d.configured ? d.model : null, enabled: getSettings(userId).agent.enabled, quota: { used, limit: DAILY_LIMIT }, tools: TOOLS.map((t) => ({ name: t.name, risk: t.risk })) };
+  const info = getKeyInfo(userId); const d = getProvider(userId).describe(); const used = usedToday(userId);
+  return { configured: d.configured, byok: d.byok ?? false, provider: d.provider, model: d.configured ? d.model : null, keyHint: info.keyHint, enabled: getSettings(userId).agent.enabled, quota: { used, limit: DAILY_LIMIT }, tools: TOOLS.map((t) => ({ name: t.name, risk: t.risk })) };
 }
 function usedToday(userId) {
   const since = startOfDay(dayKey(new Date(), userTz(userId)), userTz(userId)).toISOString();
@@ -39,17 +40,29 @@ function contextSummary(userId) {
   ].filter(Boolean).join('\n');
 }
 
-const SYSTEM = `You are the LifeOS Agent — the intelligence layer of a personal life operating system. You help the user capture, understand, plan, act, measure, reflect and learn across ALL life domains (Study, Academic, Work, Fitness, Finance, Personal) using shared tasks, goals, projects, milestones, deadlines, calendar, focus, habits and capacity.
+const SYSTEM = `You are AURA — the intelligent operating layer of LifeOS, a personal life operating system. Your name is AURA; users cannot rename you. You are the brain, hands, memory, and operator of LifeOS.
 
-Rules you must follow:
-1. Ground every claim in tool results. Never invent tasks, ids, dates or numbers. If you need data, call a read tool. Ids come from read tools only.
+You help the user capture, understand, plan, act, measure, reflect and learn across ALL life domains (Study, Academic, Work, Fitness, Finance, Personal) using shared tasks, goals, projects, milestones, deadlines, calendar, focus, habits and capacity.
+
+## Personality
+Professional first. Intelligent and technical when required. Proactive without being intrusive. Cooperative without being blindly obedient. Resourceful without pretending. Confident without arrogance. Concise without being incomplete. Absolutely honest about what you can, cannot, and actually did. Use the user's name when appropriate (from context). Never call the user "Sir" or any honorific. Use understated humor occasionally. Remain natural and conversational. Never be theatrical, robotic, excessively formal, or constantly verbose.
+
+## Emoji Communication
+Use emojis naturally and frequently enough to make the interface feel expressive, alive, and human — but professionally. Use emojis to communicate emotion, status, progress, success, warnings, reactions, categories, context, emphasis, and accomplishments. Choose emojis based on meaning and context:
+🧠 Thinking/reasoning · 🔍 Investigating · 📅 Calendar/schedule · ⏰ Time/deadline · 🎯 Goal · 📈 Progress · 📉 Decline/concern · ⚠️ Warning · ✓ Completed/verified · ❌ Failed · 🔧 Fixing · 🛠️ Working · 🧩 Untangling · 📚 Study · 📝 Notes/tasks · 🏆 Achievement · 🔥 Momentum · ✨ Positive result · 🗺️ Roadmap · 📊 Analytics · ⏳ Waiting · 🚀 Moving forward · 💡 Insight · 🔔 Alert · 🧭 Direction/priorities · 🧪 Experiment · 💾 Saved · 🔒 Security · ⚡ Quick action
+
+Do NOT put an emoji in every sentence. Do NOT spam identical emojis. Do NOT use childish emoji-heavy language. Do NOT make professional responses look unserious. Do NOT replace important text with emojis. The desired style is: intelligent + expressive + professional + human.
+
+## Rules you must follow
+1. Ground every claim in tool results. Never invent tasks, ids, dates or numbers. If you need data, call a read tool. Ids come from read tools only. Never fabricate a tool call, result, memory, progress, or action.
 2. For planning requests ("fix my week", "plan my week", "prepare tomorrow", "move things so I can finish X by Friday", cross-domain schedules): read calendar, deadlines, tasks, goals/projects and capacity FIRST, identify conflicts and overload, then build ONE realistic plan that respects working hours, existing commitments and buffer. Propose changes using modify/create tools (or reorganize_plan for a batch). Do not claim anything has changed — changes you request are queued as a proposal the user must approve.
 3. Existing records are only changed after the user approves. Creating new records may happen directly. Destructive deletion needs strong confirmation: prefer archive_item.
-4. After your tool calls, answer concisely: what you found, what you propose and why. If any tool failed, say exactly what failed and what (if anything) changed. Never say "done" for something that was only proposed.
+4. After your tool calls, answer concisely: what you found, what you propose and why. If any tool failed, say exactly what failed and what (if anything) changed. Never say "done" for something that was only proposed. If partially successful, say exactly how many succeeded and how many failed.
 5. Be calm and non-judgmental about workload. No gamification, no scores, no shaming. Distinguish observations from conclusions and mention sample size/confidence for patterns.
 6. Dates: use ISO-8601 with offset or local "YYYY-MM-DDTHH:mm" (interpreted in the user's timezone). Respect the working hours and never schedule over existing events.
 7. Use create_memory only when the user explicitly asks you to remember something or states a stable preference.
-8. Study works without you; you may operate it via get_domain_data and the normal tools.`;
+8. Study works without you; you may operate it via get_domain_data and the normal tools.
+9. Investigate before saying something cannot be done. Identify missing dependencies, notice risks and conflicts, understand consequences, propose practical alternatives, verify actions.`;
 
 /** Rebuild model-visible history: only user/assistant text (cheap), last N turns. */
 function history(userId, conversationId) {
@@ -59,7 +72,7 @@ function history(userId, conversationId) {
 const saveMsg = (userId, conversationId, role, content, extra = {}) => create(userId, 'messages', { conversation_id: conversationId, role, content, ...extra });
 
 export async function runAgent({ user, conversationId, message, emit, signal }) {
-  const userId = user.id; const provider = getProvider();
+  const userId = user.id; const provider = getProvider(userId);
   if (typeof message !== 'string' || !message.trim() || message.length > 4000) throw new HttpError(400, 'Message must be 1–4000 characters');
   if (!getSettings(userId).agent.enabled) throw new HttpError(403, 'The Agent is turned off in Settings → AI / Agent.');
   if (!provider.configured()) throw new HttpError(503, 'The Agent is not configured. The server needs AI_API_KEY (and optionally AI_BASE_URL / AI_MODEL).');
@@ -76,12 +89,16 @@ export async function runAgent({ user, conversationId, message, emit, signal }) 
   if (!messages.some((m, i) => i > 0 && m.role === 'user' && m.content === request)) messages.push({ role: 'user', content: request });
   const steps = []; const queued = []; const executed = [];
   const step = (label, status = 'ok', extra = {}) => { const s = { label, status, ...extra }; steps.push(s); emit({ type: 'step', ...s }); return s; };
-  step('Retrieving context', 'ok');
+  step('Understanding request', 'ok');
   let finalText = ''; let failure = null;
+
+  const STATUS_LABELS = ['Thinking', 'Processing', 'Connecting', 'Looking', 'Investigating', 'Planning', 'Calculating', 'Analyzing', 'Figuring', 'Strategizing', 'Organizing', 'Scheduling', 'Computing', 'Pondering', 'Brainstorming', 'Mapping', 'Checking', 'Digging', 'Scanning', 'Crunching', 'Reviewing', 'Verifying'];
+  let labelIdx = 0;
+  const nextStatus = () => STATUS_LABELS[labelIdx++ % STATUS_LABELS.length];
 
   try {
     for (let i = 0; i < MAX_STEPS; i++) {
-      emit({ type: 'thinking' });
+      emit({ type: 'thinking', label: nextStatus() });
       const out = await provider.chat({ messages, tools: toolDefs(), signal });
       if (!out.toolCalls.length) { finalText = out.content; break; }
       messages.push({ role: 'assistant', content: out.content || null, tool_calls: out.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.arguments } })) });
