@@ -7,6 +7,8 @@ import { fmt, dayKey, addDays as addDayKey, monthStartKey, addMonths, parts } fr
 import { Badge, Button, EmptyState, IconButton, PageHeader, Row, Surface, BubbleIcon, LoadingState, ErrorState } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
 import type { IconName } from '../../ui/Icon';
+import { CATEGORY_LABEL, holidaysOn } from './holidays';
+import { UpcomingHolidays } from './UpcomingHolidays';
 
 const KIND: Record<string, { label: string; icon: IconName; tone: string }> = {
   event: { label: 'Event', icon: 'calendar', tone: 'royal' },
@@ -47,6 +49,7 @@ export default function CalendarPage() {
   const rows = inLastWeek ? 6 : 5;
 
   const entries = (byDay.get(selected) ?? []).slice().sort((a, b) => a.start.localeCompare(b.start));
+  const selectedHolidays = holidaysOn(selected);
 
   return (
     <>
@@ -67,10 +70,13 @@ export default function CalendarPage() {
               {cells.slice(0, rows * 7).map((c) => {
                 const list = byDay.get(c) ?? [];
                 const kinds = Array.from(new Set(list.map((e) => e.kind))).slice(0, 3);
+                const holidays = holidaysOn(c);
                 return (
                   <button key={c} type="button" role="gridcell" className="cal-cell"
                     data-today={c === todayK} data-selected={c === selected} data-outside={!c.startsWith(cursor.slice(0, 7))}
-                    aria-label={`${fmt.dayKey(c, { weekday: 'long', month: 'long', day: 'numeric' })}${list.length ? `, ${list.length} items` : ''}`}
+                    data-holiday={holidays.length > 0}
+                    title={holidays.length ? holidays.map((h) => h.name).join(' · ') : undefined}
+                    aria-label={`${fmt.dayKey(c, { weekday: 'long', month: 'long', day: 'numeric' })}${list.length ? `, ${list.length} items` : ''}${holidays.length ? `, holiday: ${holidays.map((h) => h.name).join(', ')}` : ''}`}
                     aria-selected={c === selected}
                     onClick={() => setSelected(c)}>
                     <span className="cal-num num">{parseInt(c.slice(8))}</span>
@@ -85,6 +91,18 @@ export default function CalendarPage() {
         <section className="cal-details" aria-live="polite">
           <div className="caption">{selected === todayK ? 'Today' : 'Selected'}</div>
           <h2 style={{ marginBottom: 12 }}>{fmt.dayKey(selected, { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
+          {selectedHolidays.length > 0 && (
+            <div className="holiday-today">
+              {selectedHolidays.map((h) => (
+                <Row as="div" key={h.id}
+                  leading={<span className="holiday-dot" aria-hidden="true" />}
+                  title={h.name}
+                  subtitle={CATEGORY_LABEL[h.category]}
+                  trailing={h.isTentative ? <Badge tone="warn">Tentative</Badge> : undefined}
+                />
+              ))}
+            </div>
+          )}
           {entries.length === 0 ? (
             <EmptyState icon="calendar" title="A clear day" text="Nothing scheduled. Create an event or focus block." action={<Button variant="primary" icon="plus" onClick={() => setCreating(true)}>New event</Button>} />
           ) : (
@@ -103,6 +121,7 @@ export default function CalendarPage() {
             </div>
           )}
           <Button variant="primary" icon="plus" onClick={() => setCreating(true)} style={{ marginTop: 12 }}>New event</Button>
+          <UpcomingHolidays from={todayK} onPick={(date) => { setCursor(monthStartKey(date)); setSelected(date); }} />
         </section>
       </div>
       <EntityForm entity="events" open={creating} onClose={() => setCreating(false)} />

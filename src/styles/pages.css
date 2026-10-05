@@ -63,6 +63,27 @@
 .cal-dots i[data-kind='event'] { background: var(--accent-royal); }
 @media (min-width: 1024px) { .cal-layout { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; gap: var(--s8); } .cal-cell { aspect-ratio: auto; min-height: 84px; } .cal-details { position: sticky; top: var(--s8); } }
 
+/* Calendar — holiday treatment (red number + ring + soft tint; never outside the month) */
+.cal-cell[data-holiday='true']:not([data-outside='true']) .cal-num { color: var(--holiday); font-weight: 600; }
+.cal-cell[data-holiday='true']:not([data-outside='true']):not([data-selected='true']):not([data-today='true']) .cal-num { box-shadow: inset 0 0 0 1.5px var(--holiday-line); }
+.cal-cell[data-holiday='true']:not([data-outside='true']):not([data-selected='true']):not(:hover) { background: var(--holiday-soft); }
+.cal-cell[data-selected='true'][data-holiday='true'] .cal-num { background: var(--holiday-deep); color: #fff; box-shadow: inset 0 0 0 1.5px var(--holiday); }
+.cal-details .section { margin-top: var(--s8); }
+
+/* Upcoming holidays */
+.holiday-panel { overflow: hidden; }
+.holiday-list { display: grid; gap: var(--s2); padding: var(--s3); max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+.holiday-item { display: grid; gap: 3px; width: 100%; padding: var(--s3) var(--s4); text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.holiday-item:hover { background: var(--surface-3); border-color: var(--line-strong); }
+.holiday-item:active { transform: scale(0.99); }
+.holiday-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.holiday-date { font-size: var(--fs-caption); font-weight: 600; letter-spacing: .02em; color: var(--holiday); }
+.holiday-title { font-size: var(--fs-body); font-weight: 520; }
+.holiday-kind { font-size: var(--fs-caption); color: var(--text-3); }
+.holiday-today { display: grid; margin-bottom: var(--s3); border-bottom: 1px solid var(--line); padding-bottom: var(--s3); }
+.holiday-today .row { min-height: 48px; }
+.holiday-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--holiday); box-shadow: 0 0 0 3px var(--holiday-soft); }
+
 /* Goals & projects */
 .goal-list { display: grid; gap: var(--s4); }
 .goal-card { display: grid; gap: var(--s2); padding: var(--s6); text-align: left; transition: background var(--dur), transform var(--dur-fast) var(--ease-out), border-color var(--dur); }
