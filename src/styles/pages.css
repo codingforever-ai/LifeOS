@@ -23,6 +23,7 @@
 /* Today */
 .today-hero { margin-bottom: var(--s10); }
 .today-hero h1 { margin-top: var(--s2); }
+.today-banner { margin-top: var(--s5); }
 .today-grid { display: grid; gap: var(--s6); }
 .today-side { display: grid; gap: var(--s4); align-content: start; }
 .today-main { display: grid; align-content: start; }
@@ -39,6 +40,7 @@
 .timeline li[data-now='true'] { border-color: var(--accent); }
 .t-time { color: var(--text-3); }
 .agent-suggest { display: flex; gap: var(--s3); }
+.agent-card { background: linear-gradient(155deg, rgba(139, 92, 246, 0.3), rgba(76, 29, 149, 0.14) 58%), var(--surface-2); border-color: var(--accent-line); }
 @media (min-width: 1024px) { .today-grid { grid-template-columns: minmax(0, 1fr) 340px; gap: var(--s10); } .goal-pair { grid-template-columns: 1fr 1fr; } }
 
 /* Calendar */

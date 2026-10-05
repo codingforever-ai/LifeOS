@@ -15,6 +15,8 @@ const Projects = lazy(() => import('./features/projects/ProjectsPage'));
 const Milestones = lazy(() => import('./features/milestones/MilestonesPage'));
 const Focus = lazy(() => import('./features/focus/FocusPage'));
 const Progress = lazy(() => import('./features/progress/ProgressPage'));
+const Capacity = lazy(() => import('./features/capacity/CapacityPage'));
+const Compass = lazy(() => import('./features/compass/CompassPage'));
 const Agent = lazy(() => import('./features/agent/AgentPage'));
 const Capture = lazy(() => import('./features/capture/CapturePage'));
 const Domains = lazy(() => import('./features/domains/DomainsPage'));
@@ -43,6 +45,7 @@ function NotFound() {
 const TITLES: Record<string, string> = {
   '/': 'Today', '/tasks': 'Tasks', '/calendar': 'Calendar', '/goals': 'Goals', '/projects': 'Projects',
   '/milestones': 'Milestones', '/habits': 'Habits', '/focus': 'Focus', '/progress': 'Progress',
+  '/capacity': 'Capacity', '/compass': 'Compass',
   '/agent': 'Agent', '/capture': 'Capture', '/domains': 'Domains', '/search': 'Search', '/settings': 'Settings',
   '/deadlines': 'Deadlines', '/review': 'Review', '/timeline': 'Timeline', '/memory': 'Memory',
   '/decisions': 'Decisions', '/experiments': 'Experiments', '/accomplishments': 'Accomplishments',
@@ -73,6 +76,8 @@ function Gate() {
               <Route path="habits" element={<Habits />} />
               <Route path="focus" element={<Focus />} />
               <Route path="progress" element={<Progress />} />
+              <Route path="capacity" element={<Capacity />} />
+              <Route path="compass" element={<Compass />} />
               <Route path="patterns" element={<Patterns />} />
               <Route path="agent" element={<Agent />} />
               <Route path="capture" element={<Capture />} />

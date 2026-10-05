@@ -23,14 +23,14 @@ function Sidebar() {
         <BubbleIcon name="focus" tone="purple" size="md" />
         <span className="brand-name">LifeOS</span>
       </div>
-      <Button variant="primary" icon="plus" onClick={() => nav('/capture')} className="side-capture" aria-label="Capture">
-        <span className="side-label">Capture</span>
+      <Button variant="primary" icon="plus" onClick={() => nav('/create')} className="side-create" aria-label="Create">
+        <span className="side-label">Create</span>
       </Button>
       <nav className="side-nav">
         {NAV_GROUPS.map((g) => (
           <div key={g.id} className="side-group">
             {g.label && <div className="caption side-group-label">{g.label}</div>}
-            {g.items.filter((i) => i.id !== 'capture').map((i) => <SideLink key={i.id} item={i} />)}
+            {g.items.map((i) => <SideLink key={i.id} item={i} />)}
           </div>
         ))}
       </nav>

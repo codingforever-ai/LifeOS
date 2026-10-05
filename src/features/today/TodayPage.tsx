@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApi, useCore } from '../../core/store';
+import { useApi } from '../../core/store';
 import { useAuth } from '../../core/auth';
 import type { Task, CalItem } from '../../core/types';
-import { fmt, relDay, minutesLabel } from '../../lib/tz';
-import { Alert, BubbleIcon, Button, ProgressBar, ProgressRing, Row, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
+import { fmt, minutesLabel } from '../../lib/tz';
+import { Alert, BubbleIcon, Button, LoadingState, ErrorState, ProgressBar, Section, Surface } from '../../ui/primitives';
 import { TaskDetail, TaskRow } from '../tasks/TaskParts';
 
 interface TodayData {
@@ -17,7 +17,6 @@ interface TodayData {
 
 export default function TodayPage() {
   const { user, tz } = useAuth();
-  const { progress, goals } = useCore();
   const nav = useNavigate();
   const [open, setOpen] = useState<Task | null>(null);
   const { data, loading, error, reload } = useApi<TodayData>('/today');
@@ -36,6 +35,7 @@ export default function TodayPage() {
   });
   const next = todays.find((e) => new Date(e.start).getHours() * 60 + new Date(e.start).getMinutes() > nowMin);
   const focusEntry = current ?? next ?? todays[0];
+  const nothingToday = todays.length === 0 && data.overdueCount === 0;
 
   const cap = data.capacity;
   const load = cap.available > 0 ? Math.min(1, (cap.committed + cap.planned) / cap.available) : 0;
@@ -54,7 +54,12 @@ export default function TodayPage() {
         <div className="caption">{fmt.dateLong(now.toISOString(), tz)}</div>
         <h1>{now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {user?.name}.</h1>
         <p className="muted lead">{stateMsg[data.state] ?? stateMsg.normal}</p>
-        {data.why.length > 0 && <Alert tone="accent" icon="info">{data.why.join(' ')}</Alert>}
+        {data.why.length > 0 && (
+          <div className="today-banner"><Alert tone="accent" icon="info">{data.why.join(' ')}</Alert></div>
+        )}
+        {data.why.length === 0 && nothingToday && (
+          <div className="today-banner"><Alert tone="accent" icon="info">Nothing is scheduled or due today.</Alert></div>
+        )}
       </header>
 
       <div className="today-grid">
@@ -82,32 +87,6 @@ export default function TodayPage() {
               ) : <p className="muted small" style={{ padding: 20 }}>No high-priority tasks open.</p>}
             </Surface>
           </Section>
-
-          {data.deadlines.length > 0 && (
-            <Section title="Upcoming deadlines" action={<Link to="/deadlines" className="link small">All</Link>}>
-              <div className="list">
-                {data.deadlines.map((d: Record<string, unknown>, i) => (
-                  <Row as="div" key={i} leading={<BubbleIcon name="flag" tone="plum" size="sm" />} title={String(d.title)} subtitle={d.due_at ? relDay(String(d.due_at), tz) : ''} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {goals.length > 0 && (
-            <Section title="Goals in focus" action={<Link to="/goals" className="link small">All</Link>}>
-              <div className="goal-pair">
-                {goals.slice(0, 2).map((g) => {
-                  const p = progress.goals[g.id]?.progress ?? 0;
-                  return (
-                    <Link to="/goals" key={g.id} className="surface goal-mini">
-                      <ProgressRing value={p} label={g.title} size={48}>{Math.round(p * 100)}</ProgressRing>
-                      <span className="row-main"><span className="row-title">{g.title}</span><span className="row-sub">{g.horizon}</span></span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
         </div>
 
         <aside className="today-side stagger">
@@ -132,7 +111,7 @@ export default function TodayPage() {
             </Surface>
           )}
 
-          <Surface tone="accent">
+          <Surface tone="accent" className="agent-card">
             <div className="agent-suggest">
               <BubbleIcon name="agent" size="sm" />
               <div>
