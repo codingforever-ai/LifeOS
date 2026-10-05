@@ -1,7 +1,7 @@
 import { CrudList } from '../../ui/CrudList';
 import { PageHeader } from '../../ui/primitives';
 import { useAuth } from '../../core/auth';
-import { fmt, relDay, countdown } from '../../lib/tz';
+import { fmt, countdown } from '../../lib/tz';
 
 export default function DeadlinesPage() {
   const { tz } = useAuth();

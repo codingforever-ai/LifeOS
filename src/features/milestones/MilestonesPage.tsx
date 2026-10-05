@@ -2,7 +2,7 @@ import { useApi } from '../../core/store';
 import { useAuth } from '../../core/auth';
 import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface, ProgressBar } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
-import { fmt, relDay } from '../../lib/tz';
+import { relDay } from '../../lib/tz';
 import { useState } from 'react';
 
 interface MilestoneView { id: string; title: string; project_id: string | null; goal_id: string | null; due_at: string | null; done_at: string | null; progress: number; tasksTotal: number; tasksDone: number; derived_status: string }

@@ -4,7 +4,6 @@ import { api } from '../../api/client';
 import { useAuth } from '../../core/auth';
 import { Button, EmptyState, PageHeader, ProgressRing, Row, Section, Surface, Tabs, BubbleIcon, LoadingState, ErrorState } from '../../ui/primitives';
 import { fmt, minutesLabel } from '../../lib/tz';
-import { useToast } from '../../ui/overlay';
 
 interface FocusSession { id: string; task_id: string | null; project_id: string | null; goal_id: string | null; domain: string | null; planned_min: number; started_at: string; ended_at: string | null; accumulated_ms: number; running_since: string | null; status: string; note: string | null }
 interface FocusData { current: FocusSession | null; serverNow: string; history: FocusSession[]; byDay: { day: string; minutes: number }[]; totalMinutes: number; sessions: number }
@@ -14,9 +13,8 @@ const OPTIONS = [15, 25, 45, 60].map((m) => ({ value: String(m), label: `${m} mi
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function FocusPage() {
-  const { run, bump } = useCore();
+  const { run } = useCore();
   const { tz } = useAuth();
-  const toast = useToast();
   const { data, loading, error, reload } = useApi<FocusData>('/focus');
   const [minutes, setMinutes] = useState('25');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -67,7 +65,7 @@ export default function FocusPage() {
           ) : data?.current && phase !== 'idle' ? (
             <>
               <div className="focus-ring">
-                <ProgressRing value={phase === 'idle' ? 0 : 1 - left / total} size={240} label="Session progress"><span className="focus-time num">{mmss(shown)}</span></ProgressRing>
+                <ProgressRing value={1 - left / total} size={240} label="Session progress"><span className="focus-time num">{mmss(shown)}</span></ProgressRing>
               </div>
               <div className="focus-actions">
                 {phase === 'running' ? <Button icon="pause" onClick={pause}>Pause</Button> : <Button variant="primary" icon="play" onClick={resume}>Resume</Button>}

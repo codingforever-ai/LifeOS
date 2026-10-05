@@ -63,8 +63,8 @@ export function GoalCard({ data }: { data: Record<string, unknown> }) {
         </div>
       </div>
       <div className="goal-card-actions">
-        {data.onViewHistory && <Button variant="ghost" size="sm">View History</Button>}
-        {data.onAct && <Button variant="primary" size="sm">{String(data.actLabel ?? 'Study Now')}</Button>}
+        {Boolean(data.onViewHistory) && <Button variant="ghost" size="sm">View History</Button>}
+        {Boolean(data.onAct) && <Button variant="primary" size="sm">{String(data.actLabel ?? 'Study Now')}</Button>}
       </div>
     </Surface>
   );

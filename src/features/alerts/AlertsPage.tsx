@@ -1,7 +1,6 @@
 import { useApi, useCore } from '../../core/store';
 import { api } from '../../api/client';
 import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface } from '../../ui/primitives';
-import { fmt } from '../../lib/tz';
 
 interface AlertItem { id: string; kind: string; title: string; body: string; priority: string; read_at: string | null; dismissed_at: string | null; ref_type: string | null; ref_id: string | null }
 
@@ -10,7 +9,6 @@ export default function AlertsPage() {
   const { data, loading, error, reload } = useApi<{ items: AlertItem[]; total: number }>('/alerts?all=1');
 
   const dismiss = (id: string) => run(() => api.post(`/alerts/${id}/dismiss`), 'Dismissed');
-  const markRead = (id: string) => run(() => api.post(`/alerts/${id}/read`), 'Marked read');
 
   return (
     <>

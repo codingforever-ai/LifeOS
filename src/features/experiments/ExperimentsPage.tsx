@@ -5,15 +5,13 @@ import { useAuth } from '../../core/auth';
 import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface, Textarea, Field, Input } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
 import { Overlay } from '../../ui/overlay';
-import { fmt, dayKey } from '../../lib/tz';
-import { useToast } from '../../ui/overlay';
+import { dayKey } from '../../lib/tz';
 
 interface Experiment { id: string; title: string; hypothesis: string | null; duration_days: number; measures: string[] | null; status: string; started_at: string | null; conclusion: string | null }
 
 export default function ExperimentsPage() {
   const { run } = useCore();
   const { tz } = useAuth();
-  const toast = useToast();
   const [creating, setCreating] = useState(false);
   const [observing, setObserving] = useState<Experiment | null>(null);
   const [obsNote, setObsNote] = useState('');

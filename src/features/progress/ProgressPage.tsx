@@ -1,8 +1,7 @@
 import { useApi, useCore } from '../../core/store';
-import { useAuth } from '../../core/auth';
 import { domainName } from '../../core/domains';
 import { Badge, BubbleIcon, PageHeader, ProgressBar, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
-import { fmt, minutesLabel } from '../../lib/tz';
+import { minutesLabel } from '../../lib/tz';
 
 interface CompassData {
   days: number; totalFocusMinutes: number;

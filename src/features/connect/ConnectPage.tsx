@@ -1,6 +1,5 @@
 import { useApi } from '../../core/store';
-import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface } from '../../ui/primitives';
-import { fmt } from '../../lib/tz';
+import { Badge, BubbleIcon, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface } from '../../ui/primitives';
 
 interface Integration { provider: string; label: string; permissions: string[]; configured: boolean; status: string; last_sync_at: string | null; error: string | null; note: string }
 

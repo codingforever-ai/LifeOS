@@ -2,10 +2,9 @@ import { useApi, useCore } from '../../core/store';
 import { useAuth } from '../../core/auth';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DOMAINS } from '../../core/domains';
-import { Badge, BubbleIcon, Button, EmptyState, ErrorState, LoadingState, PageHeader, Row, Section, Surface, ProgressBar } from '../../ui/primitives';
-import { DomainIcon } from '../../ui/icons';
+import { Badge, BubbleIcon, Button, EmptyState, ErrorState, LoadingState, PageHeader, Row, Section, Surface } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
-import { fmt, relDay, minutesLabel, dayKey } from '../../lib/tz';
+import { relDay, minutesLabel } from '../../lib/tz';
 import { useState } from 'react';
 
 type Rec = Record<string, any>;

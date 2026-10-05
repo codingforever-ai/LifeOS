@@ -2,17 +2,15 @@ import { useState } from 'react';
 import { useApi, useCore } from '../../core/store';
 import { api } from '../../api/client';
 import { useAuth } from '../../core/auth';
-import { Badge, BubbleIcon, Button, Checkbox, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface, Tabs } from '../../ui/primitives';
+import { Badge, Button, Checkbox, EmptyState, LoadingState, ErrorState, PageHeader, Surface, Tabs } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
-import { fmt, dayKey } from '../../lib/tz';
-import { useToast } from '../../ui/overlay';
+import { dayKey } from '../../lib/tz';
 
 interface HabitStat { id: string; title: string; domain: string; cadence: string; target_per_week: number; status: string; stats: { doneToday: boolean; skippedToday: boolean; last7: { day: string; status: string }[]; streak: number; longest: number; consistency: number; total: number } }
 
 export default function HabitsPage() {
-  const { run, bump } = useCore();
+  const { run } = useCore();
   const { tz } = useAuth();
-  const toast = useToast();
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState('active');
   const { data, loading, error, reload } = useApi<HabitStat[]>('/habits-view');

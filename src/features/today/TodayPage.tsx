@@ -2,12 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApi, useCore } from '../../core/store';
 import { useAuth } from '../../core/auth';
-import { api } from '../../api/client';
 import type { Task, CalItem } from '../../core/types';
-import { domainName } from '../../core/domains';
-import { fmt, relDay, minutesLabel, dayKey } from '../../lib/tz';
-import { Alert, Badge, BubbleIcon, Button, ProgressBar, ProgressRing, Row, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
-import { IconTile, DomainIcon } from '../../ui/icons';
+import { fmt, relDay, minutesLabel } from '../../lib/tz';
+import { Alert, BubbleIcon, Button, ProgressBar, ProgressRing, Row, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
 import { TaskDetail, TaskRow } from '../tasks/TaskParts';
 
 interface TodayData {

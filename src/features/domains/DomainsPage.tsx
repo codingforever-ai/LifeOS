@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../core/store';
 import { DOMAINS } from '../../core/domains';
-import { BubbleIcon, Button, PageHeader, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
+import { PageHeader, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
 import { DomainIcon } from '../../ui/icons';
 
 interface Summary { [domain: string]: { tasksOpen: number; goals: number; projects: number } }

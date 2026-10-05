@@ -5,7 +5,6 @@ import { useAuth } from '../../core/auth';
 import { BubbleIcon, Button, PageHeader, Row, Section, Surface, Textarea, EmptyState, LoadingState, ErrorState, Badge } from '../../ui/primitives';
 import type { IconName } from '../../ui/Icon';
 import { fmt } from '../../lib/tz';
-import { useToast } from '../../ui/overlay';
 
 interface CaptureType { id: string; label: string; icon: IconName; tone: string; hint: string }
 const TYPES: CaptureType[] = [
@@ -20,8 +19,7 @@ const TYPES: CaptureType[] = [
 interface InboxItem { id: string; kind: string; content: string; url: string | null; status: string; created_at: string }
 
 export default function CapturePage() {
-  const { run, bump } = useCore();
-  const toast = useToast();
+  const { run } = useCore();
   const { tz } = useAuth();
   const [type, setType] = useState('task');
   const [text, setText] = useState('');

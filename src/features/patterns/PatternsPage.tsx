@@ -1,5 +1,4 @@
 import { useApi } from '../../core/store';
-import { useAuth } from '../../core/auth';
 import { Badge, BubbleIcon, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface } from '../../ui/primitives';
 
 interface PatternData { patterns: { id: string; kind: string; title: string; detail: string; evidence: string[]; n: number; confidence: string }[]; needsMoreData: string[]; note: string }

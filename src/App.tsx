@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './core/auth';
 import { CoreProvider } from './core/store';
 import { AppShell } from './shell/AppShell';

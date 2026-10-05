@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../core/auth';
 import { api, ApiError } from '../../api/client';
-import { Alert, BubbleIcon, Button, Field, Input, PageHeader, Row, Surface, Switch, LoadingState, ErrorState } from '../../ui/primitives';
+import { Alert, Badge, BubbleIcon, Button, Field, Input, PageHeader, Row, Surface, Switch, LoadingState } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
 import { Overlay } from '../../ui/overlay';
@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const { user, settings, saveSettings, logout } = useAuth();
   const toast = useToast();
   const [open, setOpen] = useState<SectionId | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
 
   const patch = async (p: Record<string, unknown>, msg: string) => {
@@ -120,7 +120,7 @@ function ByokSettings() {
   const load = () => {
     api.get<KeyInfo>('/ai/key').then((d) => { setKeyInfo(d); setShowInput(!d.configured); setLoading(false); }).catch(() => setLoading(false));
   };
-  useState(() => { load(); });
+  useEffect(() => { load(); }, []);
 
   const save = async () => {
     if (!apiKey.trim()) return;

@@ -3,10 +3,10 @@ import { useCore } from '../../core/store';
 import { useAuth } from '../../core/auth';
 import type { Project, Task } from '../../core/types';
 import { domainName } from '../../core/domains';
-import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, ProgressBar, Row, Surface } from '../../ui/primitives';
+import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, ProgressBar, ProgressRing, Row, Surface } from '../../ui/primitives';
 import { Overlay } from '../../ui/overlay';
 import { EntityForm } from '../../ui/EntityForm';
-import { fmt, relDay } from '../../lib/tz';
+import { relDay } from '../../lib/tz';
 import { TaskRow, TaskDetail } from '../tasks/TaskParts';
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'accent' | 'warn' | undefined }> = {

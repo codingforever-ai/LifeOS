@@ -6,7 +6,7 @@ import { domainName } from '../../core/domains';
 import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, ProgressBar, ProgressRing, Row, Surface } from '../../ui/primitives';
 import { Overlay } from '../../ui/overlay';
 import { EntityForm } from '../../ui/EntityForm';
-import { fmt, relDay } from '../../lib/tz';
+import { relDay } from '../../lib/tz';
 
 export default function GoalsPage() {
   const { goals, projects, milestones, tasks, progress, status, reload } = useCore();
