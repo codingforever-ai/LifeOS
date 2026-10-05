@@ -39,15 +39,26 @@ function initial(fields: FieldDef[], rec: Rec | null, defaults: Rec, tz: string)
   return v;
 }
 
+const NO_DEFAULTS: Rec = {};
+
 /** Generic create/edit dialog for any entity, driven by core/entities.ts. Server validation errors are shown per field. */
-export function EntityForm({ entity, record, defaults = {}, open, onClose, onSaved, title }: { entity: string; record?: Rec | null; defaults?: Rec; open: boolean; onClose: () => void; onSaved?: (r: Rec) => void; title?: string }) {
+export function EntityForm({ entity, record, defaults = NO_DEFAULTS, open, onClose, onSaved, title }: { entity: string; record?: Rec | null; defaults?: Rec; open: boolean; onClose: () => void; onSaved?: (r: Rec) => void; title?: string }) {
   const def = ENT[entity];
   const { tz } = useAuth(); const { run } = useCore();
-  const merged = useMemo(() => ({ ...def.defaults, ...defaults }), [def, defaults]);
+  // `defaults` is normally an inline object literal (and used to default to a fresh `{}`), so key the
+  // memo on its serialized signature: depending on the raw object identity re-ran the init effect on
+  // every render, continuously resetting form state and making every field impossible to type into.
+  const defaultsKey = JSON.stringify(defaults ?? {});
+  const merged = useMemo(() => ({ ...def.defaults, ...defaults }), [def, defaultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const recordId = record?.id ?? null;
   const [vals, setVals] = useState<Rec>({});
   const [errors, setErrors] = useState<Record<string, string>>({}); const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false); const [confirmDel, setConfirmDel] = useState(false); const [typed, setTyped] = useState('');
-  useEffect(() => { if (open) { setVals(initial(def.fields, record ?? null, merged, tz)); setErrors({}); setFormError(''); setConfirmDel(false); setTyped(''); } }, [open, record, def, merged, tz]);
+  useEffect(() => {
+    if (!open) return;
+    setVals(initial(def.fields, record ?? null, merged, tz));
+    setErrors({}); setFormError(''); setConfirmDel(false); setTyped('');
+  }, [open, recordId, def, merged, tz]); // eslint-disable-line react-hooks/exhaustive-deps -- record is read once, at init
   const set = (k: string, v: unknown) => setVals((x) => ({ ...x, [k]: v }));
 
   function payload() {

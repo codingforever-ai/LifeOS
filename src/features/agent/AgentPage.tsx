@@ -155,8 +155,7 @@ export default function AgentPage() {
   if (!status?.configured) return (
     <div className="agent">
       <div className="agent-intro page-enter">
-        <BubbleIcon name="agent" size="xl" />
-        <h1>AURA needs an AI key 🔑</h1>
+        <h1 className="agent-title-sm">AURA needs an AI key</h1>
         <Alert tone="accent" icon="info">
           AURA runs on your own Gemini API key (BYOK). Add it in <a href="/settings" className="link">Settings → AI / AURA</a> to get started.
           Everything else in LifeOS keeps working without it.
@@ -167,9 +166,8 @@ export default function AgentPage() {
   if (!status?.enabled) return (
     <div className="agent">
       <div className="agent-intro page-enter">
-        <BubbleIcon name="agent" size="xl" />
-        <h1>AURA is turned off</h1>
-        <Alert tone="accent" icon="info">Enable AURA in Settings → AI / AURA. 🧠</Alert>
+        <h1 className="agent-title-sm">AURA is turned off</h1>
+        <Alert tone="accent" icon="info">Enable AURA in Settings → AI / AURA to activate the Agent.</Alert>
       </div>
     </div>
   );
@@ -179,11 +177,14 @@ export default function AgentPage() {
       <div className="agent-scroll">
         {msgs.length === 0 ? (
           <div className="agent-intro page-enter">
-            <BubbleIcon name="agent" size="xl" />
-            <h1>How can I help? 🧠</h1>
-            <p className="muted">Ask about your day, plans or priorities. I'll read your data, propose changes, and act with your confirmation. ✨</p>
+            <div className="agent-header-bar">
+              <BubbleIcon name="agent" size="sm" />
+              <span className="caption">AURA · {status.model}</span>
+              <span className="faint small" style={{ marginLeft: 'auto' }}>{status.quota.used}/{status.quota.limit} today</span>
+            </div>
+            <h1 className="agent-title-sm">How can I help?</h1>
+            <p className="muted">Ask about your day, plans or priorities. I'll read your data, propose changes, and act with your confirmation.</p>
             <div className="chips">{SUGGESTIONS.map((s) => <button key={s} type="button" className="chip" onClick={() => send(s)}>{s}</button>)}</div>
-            <p className="faint small">AURA · {status.model} · {status.quota.used}/{status.quota.limit} messages today</p>
           </div>
         ) : (
           <div className="thread" aria-live="polite">

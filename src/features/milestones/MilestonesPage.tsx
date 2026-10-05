@@ -1,6 +1,6 @@
 import { useApi } from '../../core/store';
 import { useAuth } from '../../core/auth';
-import { Badge, BubbleIcon, Button, EmptyState, LoadingState, ErrorState, PageHeader, Row, Surface, ProgressBar } from '../../ui/primitives';
+import { Badge, BubbleIcon, Button, EmptyState, IconButton, LoadingState, ErrorState, PageHeader, Row, Surface, ProgressBar } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
 import { relDay } from '../../lib/tz';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ interface MilestoneView { id: string; title: string; project_id: string | null; 
 export default function MilestonesPage() {
   const { tz } = useAuth();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<MilestoneView | null>(null);
   const { data, loading, error, reload } = useApi<MilestoneView[]>('/milestones-view');
 
   return (
@@ -26,13 +27,17 @@ export default function MilestonesPage() {
               leading={<BubbleIcon name="flag" tone={m.done_at ? 'mist' : 'lavender'} size="sm" />}
               title={m.title}
               subtitle={`${m.tasksDone}/${m.tasksTotal} tasks · ${m.due_at ? relDay(m.due_at, tz) : 'No due date'}`}
-              trailing={<Badge tone={m.done_at ? 'ok' : m.derived_status === 'at_risk' ? 'warn' : undefined}>{m.done_at ? 'Done' : m.derived_status}</Badge>}
+              trailing={<>
+                <Badge tone={m.done_at ? 'ok' : m.derived_status === 'at_risk' ? 'warn' : undefined}>{m.done_at ? 'Done' : m.derived_status}</Badge>
+                <IconButton icon="edit" label={`Edit ${m.title}`} size="sm" onClick={() => setEditing(m)} />
+              </>}
             />
             {m.tasksTotal > 0 && <div style={{ padding: '0 16px 12px 48px' }}><ProgressBar value={m.progress} label={m.title} /></div>}</li>
           ))}
         </ul></Surface>
       )}
       <EntityForm entity="milestones" open={creating} onClose={() => setCreating(false)} />
+      {editing && <EntityForm entity="milestones" record={editing} open={true} onClose={() => setEditing(null)} />}
     </>
   );
 }

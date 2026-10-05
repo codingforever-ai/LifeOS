@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApi, useCore } from '../../core/store';
 import { api } from '../../api/client';
 import { useAuth } from '../../core/auth';
-import { Badge, Button, Checkbox, EmptyState, LoadingState, ErrorState, PageHeader, Surface, Tabs } from '../../ui/primitives';
+import { Badge, Button, Checkbox, EmptyState, IconButton, LoadingState, ErrorState, PageHeader, Surface, Tabs } from '../../ui/primitives';
 import { EntityForm } from '../../ui/EntityForm';
 import { dayKey } from '../../lib/tz';
 
@@ -12,6 +12,7 @@ export default function HabitsPage() {
   const { run } = useCore();
   const { tz } = useAuth();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<HabitStat | null>(null);
   const [tab, setTab] = useState('active');
   const { data, loading, error, reload } = useApi<HabitStat[]>('/habits-view');
   const today = dayKey(new Date(), tz);
@@ -39,7 +40,10 @@ export default function HabitsPage() {
                   <span className="row-title">{h.title}</span>
                   <span className="row-sub">{h.cadence} · {h.stats.streak} day streak · {Math.round(h.stats.consistency * 100)}% consistency · {h.stats.total} total</span>
                 </span>
-                {h.stats.longest > 0 && <Badge tone="accent">Best: {h.stats.longest}</Badge>}
+                <div className="row-end" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+                  {h.stats.longest > 0 && <Badge tone="accent">Best: {h.stats.longest}</Badge>}
+                  <IconButton icon="edit" label={`Edit ${h.title}`} size="sm" onClick={() => setEditing(h)} />
+                </div>
               </div>
               {h.stats.last7.length > 0 && (
                 <div style={{ display: 'flex', gap: 4, padding: '0 16px 12px 48px' }}>
@@ -51,6 +55,7 @@ export default function HabitsPage() {
         </ul></Surface>
       )}
       <EntityForm entity="habits" open={creating} onClose={() => setCreating(false)} />
+      {editing && <EntityForm entity="habits" record={editing} open={true} onClose={() => setEditing(null)} />}
     </>
   );
 }

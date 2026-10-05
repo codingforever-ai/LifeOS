@@ -14,47 +14,65 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+/**
+ * Sidebar hierarchy (shared by the desktop sidebar and the mobile More sheet).
+ * Group order: Today → Plan → Do & Measure → Understand → Remember → Utility.
+ */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    id: 'primary',
+    id: 'today',
     items: [
       { id: 'today', label: 'Today', path: '/', icon: 'today', mobilePrimary: true },
-      { id: 'tasks', label: 'Tasks', path: '/tasks', icon: 'tasks', mobilePrimary: true },
+      { id: 'capture', label: 'Capture', path: '/capture', icon: 'inbox' },
       { id: 'calendar', label: 'Calendar', path: '/calendar', icon: 'calendar', mobilePrimary: true },
+    ],
+  },
+  {
+    id: 'plan',
+    label: 'Plan',
+    items: [
       { id: 'deadlines', label: 'Deadlines', path: '/deadlines', icon: 'flag' },
       { id: 'goals', label: 'Goals', path: '/goals', icon: 'goals' },
       { id: 'projects', label: 'Projects', path: '/projects', icon: 'projects' },
       { id: 'milestones', label: 'Milestones', path: '/milestones', icon: 'flag' },
+      { id: 'tasks', label: 'Tasks', path: '/tasks', icon: 'tasks', mobilePrimary: true },
       { id: 'habits', label: 'Habits', path: '/habits', icon: 'repeat' },
-      { id: 'focus', label: 'Focus', path: '/focus', icon: 'focus' },
     ],
   },
   {
-    id: 'intelligence',
-    label: 'Intelligence',
+    id: 'measure',
+    label: 'Do & Measure',
     items: [
-      { id: 'agent', label: 'Agent', path: '/agent', icon: 'agent', mobilePrimary: true },
+      { id: 'focus', label: 'Focus', path: '/focus', icon: 'focus' },
       { id: 'progress', label: 'Progress', path: '/progress', icon: 'progress' },
-      { id: 'patterns', label: 'Patterns', path: '/patterns', icon: 'trend' },
-      { id: 'review', label: 'Review', path: '/review', icon: 'history' },
-      { id: 'experiments', label: 'Experiments', path: '/experiments', icon: 'flask' },
+      { id: 'capacity', label: 'Capacity', path: '/capacity', icon: 'gauge' },
+      { id: 'compass', label: 'Compass', path: '/compass', icon: 'compass' },
     ],
   },
   {
-    id: 'memory',
-    label: 'Memory',
+    id: 'understand',
+    label: 'Understand',
+    items: [
+      { id: 'experiments', label: 'Experiments', path: '/experiments', icon: 'flask' },
+      { id: 'patterns', label: 'Patterns', path: '/patterns', icon: 'trend' },
+      { id: 'review', label: 'Review', path: '/review', icon: 'eye' },
+    ],
+  },
+  {
+    id: 'remember',
+    label: 'Remember',
     items: [
       { id: 'timeline', label: 'Timeline', path: '/timeline', icon: 'history' },
       { id: 'memory', label: 'Memory', path: '/memory', icon: 'brain' },
       { id: 'decisions', label: 'Decisions', path: '/decisions', icon: 'compass' },
       { id: 'accomplishments', label: 'Accomplishments', path: '/accomplishments', icon: 'trophy' },
+      { id: 'map', label: 'Map', path: '/map', icon: 'map' },
     ],
   },
   {
     id: 'utility',
     label: 'Utility',
     items: [
-      { id: 'capture', label: 'Capture', path: '/capture', icon: 'capture' },
       { id: 'create', label: 'Create', path: '/create', icon: 'plus' },
       { id: 'search', label: 'Search', path: '/search', icon: 'search' },
       { id: 'alerts', label: 'Alerts', path: '/alerts', icon: 'bell' },
@@ -65,4 +83,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
+/** Reached from the Today dashboard Agent card and the phone tab bar, not the desktop sidebar. */
+export const EXTRA_NAV: NavItem[] = [
+  { id: 'agent', label: 'Agent', path: '/agent', icon: 'agent', mobilePrimary: true },
+];
+
+export const ALL_NAV = [...NAV_GROUPS.flatMap((g) => g.items), ...EXTRA_NAV];

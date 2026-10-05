@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApi, useCore } from '../../core/store';
 import { api } from '../../api/client';
 import { useAuth } from '../../core/auth';
-import { Button, EmptyState, PageHeader, ProgressRing, Row, Section, Surface, Tabs, BubbleIcon, LoadingState, ErrorState } from '../../ui/primitives';
+import { Button, EmptyState, IconButton, PageHeader, ProgressRing, Row, Section, Surface, Tabs, BubbleIcon, LoadingState, ErrorState } from '../../ui/primitives';
 import { fmt, minutesLabel } from '../../lib/tz';
 
 interface FocusSession { id: string; task_id: string | null; project_id: string | null; goal_id: string | null; domain: string | null; planned_min: number; started_at: string; ended_at: string | null; accumulated_ms: number; running_since: string | null; status: string; note: string | null }
@@ -15,10 +15,12 @@ const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${St
 export default function FocusPage() {
   const { run } = useCore();
   const { tz } = useAuth();
+  const { tasks, goals, projects } = useCore();
   const { data, loading, error, reload } = useApi<FocusData>('/focus');
   const [minutes, setMinutes] = useState('25');
   const [phase, setPhase] = useState<Phase>('idle');
   const [left, setLeft] = useState(25 * 60);
+  const [fullscreen, setFullscreen] = useState(false);
   const total = Number(minutes) * 60;
   const endAt = useRef(0);
 
@@ -32,23 +34,68 @@ export default function FocusPage() {
     return () => clearInterval(id);
   }, [phase]);
 
+  // Keyboard controls in fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === ' ' && (phase === 'running' || phase === 'paused')) { e.preventDefault(); if (phase === 'running') pause(); else resume(); }
+      else if (e.key === 'Escape') setFullscreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fullscreen, phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const start = () => {
     run(async () => {
       const s = await api.post<FocusSession>('/focus', { planned_min: Number(minutes) });
-      endAt.current = Date.now() + total * 1000; setLeft(total); setPhase('running');
+      endAt.current = Date.now() + total * 1000; setLeft(total); setPhase('running'); setFullscreen(true);
       return s;
     }, 'Focus session started');
   };
   const pause = () => { run(() => api.post(`/focus/${data?.current?.id}/pause`), 'Paused'); setPhase('paused'); };
   const resume = () => { run(() => api.post(`/focus/${data?.current?.id}/resume`), 'Resumed'); endAt.current = Date.now() + left * 1000; setPhase('running'); };
-  const finish = () => { run(() => api.post(`/focus/${data?.current?.id}/stop`), 'Session saved'); setPhase('done'); };
+  const finish = () => { run(() => api.post(`/focus/${data?.current?.id}/stop`), 'Session saved'); setPhase('done'); setFullscreen(false); };
   const reset = () => { setPhase('idle'); setLeft(total); reload(); };
 
   const shown = phase === 'idle' ? total : left;
   const history = data?.history ?? [];
+  const currentSession = data?.current ?? null;
+  const contextTask = currentSession?.task_id ? tasks.find((t) => t.id === currentSession.task_id) : null;
+  const contextProject = currentSession?.project_id ? projects.find((p) => p.id === currentSession.project_id) : null;
+  const contextGoal = currentSession?.goal_id ? goals.find((g) => g.id === currentSession.goal_id) : null;
+  const contextLabel = contextTask?.title ?? contextProject?.title ?? contextGoal?.title ?? null;
 
   if (loading && !data) return <div style={{ padding: 24 }}><LoadingState label="Loading focus" /></div>;
   if (error && !data) return <ErrorState text={error} onRetry={reload} />;
+
+  // Full-screen distraction-free mode
+  if (fullscreen && (phase === 'running' || phase === 'paused')) {
+    return (
+      <div className="focus-fullscreen" role="dialog" aria-label="Focus session">
+        <IconButton icon="close" label="Exit full screen" className="focus-exit" onClick={() => setFullscreen(false)} />
+        <Surface pad="lg" className="focus-stage">
+          {contextLabel && (
+            <div className="focus-context">
+              <div className="caption">Focusing on</div>
+              <h2 style={{ marginTop: 4 }}>{contextLabel}</h2>
+            </div>
+          )}
+          <div className="focus-ring">
+            <ProgressRing value={1 - left / total} size={240} label="Session progress"><span className="focus-time num">{mmss(shown)}</span></ProgressRing>
+          </div>
+          <div className="focus-actions">
+            {phase === 'running' ? <Button icon="pause" onClick={pause}>Pause</Button> : <Button variant="primary" icon="play" onClick={resume}>Resume</Button>}
+            <Button variant="ghost" onClick={finish}>Finish</Button>
+          </div>
+          <p className="faint small" aria-live="polite">{phase === 'running' ? 'In session' : 'Paused'}</p>
+        </Surface>
+        <div className="focus-hint">
+          <span><kbd>Space</kbd> Pause / Resume</span>
+          <span><kbd>Esc</kbd> Exit</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -64,12 +111,19 @@ export default function FocusPage() {
             </div>
           ) : data?.current && phase !== 'idle' ? (
             <>
+              {contextLabel && (
+                <div className="focus-context">
+                  <div className="caption">Focusing on</div>
+                  <p className="small" style={{ marginTop: 4 }}>{contextLabel}</p>
+                </div>
+              )}
               <div className="focus-ring">
                 <ProgressRing value={1 - left / total} size={240} label="Session progress"><span className="focus-time num">{mmss(shown)}</span></ProgressRing>
               </div>
               <div className="focus-actions">
                 {phase === 'running' ? <Button icon="pause" onClick={pause}>Pause</Button> : <Button variant="primary" icon="play" onClick={resume}>Resume</Button>}
                 <Button variant="ghost" onClick={finish}>Finish</Button>
+                <Button variant="ghost" icon="focus" onClick={() => setFullscreen(true)}>Full screen</Button>
               </div>
               <p className="faint small" aria-live="polite">{phase === 'running' ? 'In session' : 'Paused'}</p>
             </>

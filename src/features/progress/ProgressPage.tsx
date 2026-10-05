@@ -24,12 +24,12 @@ export default function ProgressPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Progress" title="How it's going" subtitle="Outcomes and trends, without the noise." />
+      <PageHeader eyebrow="Progress" title="How it's going" subtitle="Outcomes and trends from your records. Derived data is labelled — never fabricated." />
       <div className="stats stagger">
-        <div><div className="stat-num num">{Math.round(focusTotal / 6) / 10}<small> h</small></div><div className="muted small">Focus (14 days)</div></div>
-        <div><div className="stat-num num">{done}</div><div className="muted small">Tasks completed</div></div>
-        <div><div className="stat-num num">{goals.filter((g) => g.status === 'active').length}</div><div className="muted small">Active goals</div></div>
-        <div><div className="stat-num num">{projects.filter((p) => p.status === 'active').length}</div><div className="muted small">Active projects</div></div>
+        <div><div className="stat-num num">{Math.round(focusTotal / 6) / 10}<small> h</small></div><div className="muted small">Focus (14d) <span className="data-tag">derived</span></div></div>
+        <div><div className="stat-num num">{done}</div><div className="muted small">Tasks completed <span className="data-tag">recorded</span></div></div>
+        <div><div className="stat-num num">{goals.filter((g) => g.status === 'active').length}</div><div className="muted small">Active goals <span className="data-tag">recorded</span></div></div>
+        <div><div className="stat-num num">{projects.filter((p) => p.status === 'active').length}</div><div className="muted small">Active projects <span className="data-tag">recorded</span></div></div>
       </div>
 
       {loading && <Surface><LoadingState label="Loading analytics" /></Surface>}
@@ -37,7 +37,7 @@ export default function ProgressPage() {
       {data && (
         <>
           {data.allocation.length > 0 && (
-            <Section title="Time allocation · 14 days">
+            <Section title="Time allocation · 14 days · derived from focus sessions">
               <Surface>
                 {data.allocation.map((a) => (
                   <div key={a.domain} style={{ marginBottom: 12 }}>
@@ -82,7 +82,7 @@ export default function ProgressPage() {
         </>
       )}
 
-      <Section title="Goals">
+      <Section title="Goal progress · derived from tasks, milestones & measurements">
         <Surface><div className="bars">{goals.map((g) => {
           const p = progress.goals[g.id]?.progress ?? 0;
           return <div key={g.id}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -91,7 +91,7 @@ export default function ProgressPage() {
         })}</div></Surface>
       </Section>
 
-      <Section title="Projects">
+      <Section title="Project progress · derived from milestones & tasks">
         <Surface><div className="bars">{projects.map((p) => {
           const v = progress.projects[p.id]?.progress ?? 0;
           return <div key={p.id}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
