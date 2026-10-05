@@ -7,7 +7,7 @@ export type DomainId = string;
 export type Priority = 'high' | 'medium' | 'low';
 
 export interface Base { id: string; created_at: string; updated_at: string; archived_at: string | null }
-export interface Goal extends Base { title: string; why: string | null; domain: DomainId; horizon: string | null; status: 'active' | 'paused' | 'completed' | 'abandoned' | 'at_risk'; priority: number; target_date: string | null; notes: string | null }
+export interface Goal extends Base { title: string; why: string | null; domain: DomainId; horizon: string | null; status: 'active' | 'paused' | 'completed' | 'abandoned' | 'at_risk'; priority: number; target_date: string | null; notes: string | null; target_value: number | null; unit: string | null; measurement_type: string | null; direction: 'increase' | 'decrease' | null }
 export interface Project extends Base { title: string; summary: string | null; domain: DomainId; goal_id: string | null; status: 'planning' | 'active' | 'blocked' | 'paused' | 'completed' | 'archived'; due_at: string | null; notes: string | null; blocked_reason: string | null }
 export interface Milestone extends Base { title: string; project_id: string | null; goal_id: string | null; deadline_id: string | null; due_at: string | null; done_at: string | null; notes: string | null; position: number }
 export interface Task extends Base { title: string; notes: string | null; domain: DomainId; priority: Priority; due_at: string | null; due_has_time: boolean; estimate_min: number | null; actual_min: number | null; done_at: string | null; goal_id: string | null; project_id: string | null; milestone_id: string | null; deadline_id: string | null; parent_id: string | null; tags: string[] | null; recurrence: Recurrence | null }

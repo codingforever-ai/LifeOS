@@ -31,9 +31,12 @@ export const ENT: Record<string, EntityDef> = {
     f('consequence', 'Consequence if missed', 'text', { wide: true }), f('estimate_min', 'Estimated effort (min)', 'number', { min: 0 }), f('reminder_min', 'Remind before (min)', 'number', { min: 0 }),
     domain, goalRef, projectRef, f('milestone_id', 'Milestone', 'ref', { ref: 'milestones' }), f('recurrence', 'Repeats', 'recurrence'), f('notes', 'Notes', 'textarea', { wide: true }),
   ] },
-  goals: { entity: 'goals', label: 'Goal', plural: 'Goals', icon: 'goals', tone: 'royal', title: (r) => r.title, defaults: { status: 'active', priority: 2, domain: 'personal' }, fields: [
+  goals: { entity: 'goals', label: 'Goal', plural: 'Goals', icon: 'goals', tone: 'royal', title: (r) => r.title, defaults: { status: 'active', priority: 2, domain: 'personal', direction: 'increase' }, fields: [
     f('title', 'Goal', 'text', { required: true, wide: true }), f('why', 'Why it matters', 'textarea', { wide: true }), domain, f('horizon', 'Horizon', 'text', { placeholder: 'e.g. This quarter' }),
-    f('status', 'Status', 'select', { options: opt('active', 'paused', 'completed', 'abandoned', 'at_risk') }), f('priority', 'Priority (1 = top)', 'number', { min: 1, max: 3 }), f('target_date', 'Target date', 'date'), f('notes', 'Notes', 'textarea', { wide: true }),
+    f('status', 'Status', 'select', { options: opt('active', 'paused', 'completed', 'abandoned', 'at_risk') }), f('priority', 'Priority (1 = top)', 'number', { min: 1, max: 3 }), f('target_date', 'Target date', 'date'),
+    f('target_value', 'Target value', 'number', { help: 'Set this to make the goal measurable (e.g. 500)' }), f('unit', 'Unit', 'text', { placeholder: 'hours, pages, kg…' }),
+    f('measurement_type', 'Measurement type', 'select', { options: opt('duration', 'count', 'score', 'percentage') }), f('direction', 'Direction', 'select', { options: opt('increase', 'decrease') }),
+    f('notes', 'Notes', 'textarea', { wide: true }),
   ] },
   projects: { entity: 'projects', label: 'Project', plural: 'Projects', icon: 'projects', tone: 'royal', title: (r) => r.title, defaults: { status: 'planning', domain: 'personal' }, fields: [
     f('title', 'Project', 'text', { required: true, wide: true }), f('summary', 'Summary', 'textarea', { wide: true }), domain, goalRef,

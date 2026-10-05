@@ -38,7 +38,16 @@ export function computeProgress(userId) {
     pr[p.id] = { progress: units.length ? sum(units) / units.length : 0, milestonesTotal: (msByP.get(p.id) ?? []).length, milestonesDone: (msByP.get(p.id) ?? []).filter((m) => m.done_at).length, tasksTotal: all.length, tasksDone: all.filter((t) => t.done_at).length };
   }
   const gl = {};
+  const measByG = group(rows(userId, 'measurements'), 'goal_id');
   for (const g of goals) {
+    // Measurable goal: progress from measurements vs target_value
+    if (g.target_value != null && g.target_value > 0) {
+      const ms = measByG.get(g.id) ?? [];
+      const total = ms.reduce((s, m) => s + (m.value || 0), 0);
+      const prog = g.direction === 'decrease' ? Math.max(0, (g.target_value - total) / g.target_value) : Math.min(1, total / g.target_value);
+      gl[g.id] = { progress: prog, projects: 0, projectsDone: 0, tasksTotal: 0, measured: total, target: g.target_value, unit: g.unit };
+      continue;
+    }
     const ps = projects.filter((p) => p.goal_id === g.id);
     const units = ps.map((p) => pr[p.id].progress);
     for (const m of (msByG.get(g.id) ?? []).filter((m) => !m.project_id)) units.push(ms[m.id].progress);

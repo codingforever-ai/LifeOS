@@ -60,6 +60,14 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '003_measurable_goals',
+    up() {
+      for (const col of ['target_value REAL', "unit TEXT", "measurement_type TEXT", "direction TEXT DEFAULT 'increase'"]) {
+        try { db.exec(`ALTER TABLE goals ADD COLUMN ${col}`); } catch (e) { if (!e.message.includes('duplicate column')) throw e; }
+      }
+    },
+  },
 ];
 
 export function migrate() {

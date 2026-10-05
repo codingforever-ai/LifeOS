@@ -51,6 +51,8 @@ export function getProvider(userId) {
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), 90_000);
       signal?.addEventListener('abort', () => ctl.abort());
+      const RETRYABLE = new Set([429, 500, 502, 503]);
+      const MAX_RETRIES = 3;
       let res;
       for (let attempt = 0; ; attempt++) {
         try {
@@ -63,10 +65,14 @@ export function getProvider(userId) {
           clearTimeout(timer);
           throw new HttpError(502, e.name === 'AbortError' ? 'The AI provider timed out.' : 'Could not reach the AI provider.');
         }
-        if (res.status === 429 && attempt < 2) {
+        if (RETRYABLE.has(res.status) && attempt < MAX_RETRIES) {
           let wait = Number(res.headers.get('retry-after')) || 0;
-          if (!wait) { try { const m = /try again in ([\d.]+)s/i.exec((await res.clone().json())?.error?.message ?? ''); wait = m ? Number(m[1]) : 8; } catch { wait = 8; } }
-          await new Promise((r) => setTimeout(r, Math.min(wait, 20) * 1000 + 300));
+          if (!wait) {
+            const base = 2 ** attempt; // 1s, 2s, 4s
+            const jitter = Math.random() * 500;
+            wait = base + jitter / 1000;
+          }
+          await new Promise((r) => setTimeout(r, Math.min(wait, 30) * 1000));
           continue;
         }
         break;
@@ -78,6 +84,7 @@ export function getProvider(userId) {
         if (res.status === 401 || res.status === 403) throw new HttpError(401, `Authentication failed. Your Gemini API key may be invalid or expired.${detail ? ` (${String(detail).slice(0, 150)})` : ''}`);
         if (res.status === 404) throw new HttpError(404, `Model "${model}" was not found. Check Settings → AI / AURA.`);
         if (res.status === 429) throw new HttpError(429, 'Rate limited. Your Google project quota may be exhausted.');
+        if (res.status === 503) throw new HttpError(503, `Gemini is temporarily overloaded. Please try again in a moment.${detail ? ` (${String(detail).slice(0, 150)})` : ''}`);
         throw new HttpError(502, `The AI provider returned an error (${res.status})${detail ? `: ${String(detail).slice(0, 200)}` : ''}`);
       }
       const json = await res.json();

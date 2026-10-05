@@ -71,26 +71,38 @@ export async function testKey(userId) {
   const row = db.prepare("SELECT model, base_url FROM ai_keys WHERE user_id = ? AND provider = 'gemini' AND status = 'active'").get(userId);
   const model = row?.model || DEFAULT_MODEL;
   const baseUrl = (row?.base_url || DEFAULT_BASE).replace(/\/+$/, '');
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 1 }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (res.ok) {
-      db.prepare('UPDATE ai_keys SET tested_at = ? WHERE user_id = ? AND provider = ?').run(new Date().toISOString(), userId, 'gemini');
-      return { ok: true, model };
+  const RETRYABLE = new Set([429, 500, 502, 503]);
+  let res;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 1 }),
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      if (e.name === 'TimeoutError' || e.name === 'AbortError') throw new HttpError(504, 'Connection timed out. Check your network and try again.');
+      if (attempt < 2) { await new Promise((r) => setTimeout(r, 1000 * (2 ** attempt))); continue; }
+      throw new HttpError(502, `Could not reach the AI provider: ${e.message}`);
     }
-    let detail = '';
-    try { detail = (await res.json())?.error?.message ?? ''; } catch { /* ignore */ }
-    if (res.status === 401 || res.status === 403) throw new HttpError(401, `Authentication failed (${res.status}). The key may be invalid or expired.`);
-    if (res.status === 404) throw new HttpError(404, `Model "${model}" was not found. Check the model name.`);
-    if (res.status === 429) throw new HttpError(429, 'Rate limited. Your Google project quota may be exhausted.');
-    throw new HttpError(res.status, `Provider error (${res.status})${detail ? `: ${String(detail).slice(0, 200)}` : ''}`);
-  } catch (e) {
-    if (e instanceof HttpError) throw e;
-    if (e.name === 'TimeoutError' || e.name === 'AbortError') throw new HttpError(504, 'Connection timed out. Check your network and try again.');
-    throw new HttpError(502, `Could not reach the AI provider: ${e.message}`);
+    if (RETRYABLE.has(res.status) && attempt < 2) {
+      const wait = Number(res.headers.get('retry-after')) || 2 ** attempt;
+      await new Promise((r) => setTimeout(r, Math.min(wait, 10) * 1000));
+      continue;
+    }
+    break;
   }
+  if (res.ok) {
+    db.prepare('UPDATE ai_keys SET tested_at = ? WHERE user_id = ? AND provider = ?').run(new Date().toISOString(), userId, 'gemini');
+    return { ok: true, model };
+  }
+  let detail = '';
+  try { detail = (await res.json())?.error?.message ?? ''; } catch { /* ignore */ }
+  if (res.status === 401 || res.status === 403) throw new HttpError(401, `Authentication failed (${res.status}). The key may be invalid or expired.`);
+  if (res.status === 404) throw new HttpError(404, `Model "${model}" was not found. Check the model name.`);
+  if (res.status === 429) throw new HttpError(429, 'Rate limited. Your Google project quota may be exhausted.');
+  if (res.status === 503) throw new HttpError(503, `Gemini is temporarily overloaded. Please try again in a moment.${detail ? ` (${String(detail).slice(0, 150)})` : ''}`);
+  throw new HttpError(res.status, `Provider error (${res.status})${detail ? `: ${String(detail).slice(0, 200)}` : ''}`);
 }
