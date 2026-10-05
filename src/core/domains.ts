@@ -6,12 +6,12 @@ import type { DomainDef } from './types';
  * one overview function in server/domains.mjs and one page in features/domains.
  */
 export const DOMAINS: DomainDef[] = [
-  { id: 'academic', name: 'Academic', blurb: 'Subjects, exams, assignments', icon: 'graduation', tone: 'lavender', path: '/academic' },
-  { id: 'study', name: 'Study', blurb: 'Chapters, practice, revision', icon: 'book', tone: 'plum', path: '/study' },
-  { id: 'work', name: 'Work', blurb: 'Clients, deliverables, outcomes', icon: 'briefcase', tone: 'royal', path: '/work' },
-  { id: 'fitness', name: 'Fitness', blurb: 'Programs, workouts, recovery', icon: 'dumbbell', tone: 'slate', path: '/fitness' },
-  { id: 'finance', name: 'Finance', blurb: 'Commitments, saving, planning', icon: 'wallet', tone: 'sand', path: '/finance' },
-  { id: 'personal', name: 'Personal', blurb: 'Errands, home, relationships', icon: 'home', tone: 'purple', path: '/personal' },
+  { id: 'academic', name: 'Academic', blurb: 'Subjects, exams, assignments', icon: 'graduation', tone: 'lavender', path: '/academic', status: 'core' },
+  { id: 'study', name: 'Study', blurb: 'Chapters, practice, revision', icon: 'book', tone: 'plum', path: '/study', status: 'core' },
+  { id: 'work', name: 'Work', blurb: 'Clients, deliverables, outcomes', icon: 'briefcase', tone: 'royal', path: '/work', status: 'core' },
+  { id: 'fitness', name: 'Fitness', blurb: 'Programs, workouts, recovery', icon: 'dumbbell', tone: 'slate', path: '/fitness', status: 'core' },
+  { id: 'finance', name: 'Finance', blurb: 'Commitments, saving, planning', icon: 'wallet', tone: 'sand', path: '/finance', status: 'core' },
+  { id: 'personal', name: 'Personal', blurb: 'Errands, home, relationships', icon: 'home', tone: 'purple', path: '/personal', status: 'core' },
 ];
 export const domainName = (id: string | null | undefined) => DOMAINS.find((d) => d.id === id)?.name ?? (id ? id[0].toUpperCase() + id.slice(1) : 'Unassigned');
 export const DOMAIN_OPTIONS = DOMAINS.map((d) => ({ value: d.id, label: d.name }));

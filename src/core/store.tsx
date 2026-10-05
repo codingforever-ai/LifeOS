@@ -16,6 +16,10 @@ interface CoreValue {
   reload: () => void; bump: () => void;
   /** Run a mutation: toasts the outcome, refreshes everything, returns the result (undefined on failure). */
   run: <T>(fn: () => Promise<T>, success?: string) => Promise<T | undefined>;
+  /** Toggle task completion. */
+  toggleTask: (id: string) => Promise<void>;
+  /** Quick-create a task. */
+  addTask: (title: string, extra?: Partial<Task>) => Promise<void>;
 }
 const EMPTY: Progress = { goals: {}, projects: {}, milestones: {} };
 const Ctx = createContext<CoreValue | null>(null);
@@ -43,7 +47,16 @@ export function CoreProvider({ children }: { children: ReactNode }) {
     catch (e) { toast(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'); return undefined; }
   }, [toast, bump]);
 
-  const value = useMemo<CoreValue>(() => ({ status, error, version, ...data, reload: bump, bump, run }), [status, error, version, data, bump, run]);
+  const toggleTask = useCallback(async (id: string) => {
+    const t = data.tasks.find((x) => x.id === id);
+    if (t?.done_at) { await run(() => api.post(`/e/tasks/${id}/reopen`), 'Task reopened'); }
+    else { await run(() => api.post(`/e/tasks/${id}/complete`), 'Task completed'); }
+  }, [data.tasks, run]);
+  const addTask = useCallback(async (title: string, extra?: Partial<Task>) => {
+    await run(() => api.post('/e/tasks', { title, priority: 'medium', domain: 'personal', ...extra }), 'Task created');
+  }, [run]);
+
+  const value = useMemo<CoreValue>(() => ({ status, error, version, ...data, reload: bump, bump, run, toggleTask, addTask }), [status, error, version, data, bump, run, toggleTask, addTask]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 export function useCore() { const v = useContext(Ctx); if (!v) throw new Error('useCore must be used inside CoreProvider'); return v; }

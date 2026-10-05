@@ -1,21 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
-import { demoFocusHistory } from '../../data/demo';
-import { Button, EmptyState, PageHeader, ProgressRing, Row, Section, Surface, Tabs, BubbleIcon } from '../../ui/primitives';
+import { useApi, useCore } from '../../core/store';
+import { useAuth } from '../../core/auth';
+import { api } from '../../api/client';
+import { fmt, minutesLabel } from '../../lib/tz';
+import { Button, EmptyState, ErrorState, LoadingState, PageHeader, ProgressRing, Row, Section, Surface, Tabs, BubbleIcon } from '../../ui/primitives';
 import { useToast } from '../../ui/overlay';
 
 type Phase = 'idle' | 'running' | 'paused' | 'done';
 const OPTIONS = [15, 25, 45, 60].map((m) => ({ value: String(m), label: `${m} min` }));
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-/** Phase 1: local timer only. A real session model will come from Core later. */
+interface FocusData {
+  current: { id: string; planned_min: number; accumulated_ms: number; running_since: string | null; status: string; task_id: string | null; note: string | null } | null;
+  serverNow: string;
+  history: { id: string; started_at: string; planned_min: number; accumulated_ms: number; status: string; task_id: string | null; note: string | null }[];
+  byDay: { day: string; minutes: number }[];
+  totalMinutes: number;
+  sessions: number;
+}
+
 export default function FocusPage() {
+  const { tz } = useAuth();
+  const { run } = useCore();
   const toast = useToast();
+  const { data, loading, error, reload } = useApi<FocusData>('/focus');
   const [minutes, setMinutes] = useState('25');
   const [phase, setPhase] = useState<Phase>('idle');
   const [left, setLeft] = useState(25 * 60);
-  const [history, setHistory] = useState(demoFocusHistory);
-  const total = Number(minutes) * 60;
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const endAt = useRef(0);
+  const total = Number(minutes) * 60;
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -27,18 +41,39 @@ export default function FocusPage() {
     return () => clearInterval(id);
   }, [phase]);
 
-  const start = () => { endAt.current = Date.now() + total * 1000; setLeft(total); setPhase('running'); };
-  const pause = () => { setPhase('paused'); };
-  const resume = () => { endAt.current = Date.now() + left * 1000; setPhase('running'); };
-  const finish = (early: boolean) => {
-    const spent = Math.max(1, Math.round((total - left) / 60));
-    setHistory((h) => [{ id: `f${Date.now()}`, label: 'Focus session', minutes: early ? spent : Number(minutes), when: 'Just now' }, ...h]);
-    setPhase('done');
-    if (early) toast(`Session saved · ${spent} min`);
+  const start = async () => {
+    try {
+      const r = await api.post<{ id: string }>('/focus', { planned_min: Number(minutes) });
+      setSessionId(r.id);
+      endAt.current = Date.now() + total * 1000;
+      setLeft(total);
+      setPhase('running');
+    } catch { toast('Could not start session'); }
   };
-  const reset = () => { setPhase('idle'); setLeft(total); };
 
+  const pause = async () => {
+    if (sessionId) await run(() => api.post(`/focus/${sessionId}/pause`), 'Paused');
+    setPhase('paused');
+  };
+
+  const resume = async () => {
+    if (sessionId) await run(() => api.post(`/focus/${sessionId}/resume`), 'Resumed');
+    endAt.current = Date.now() + left * 1000;
+    setPhase('running');
+  };
+
+  const finish = async (early: boolean) => {
+    if (sessionId) {
+      await run(() => api.post(`/focus/${sessionId}/stop`), early ? 'Session saved' : 'Session complete');
+    }
+    setPhase('done');
+  };
+
+  const reset = () => { setPhase('idle'); setLeft(total); setSessionId(null); reload(); };
   const shown = phase === 'idle' ? total : left;
+
+  if (loading && !data) return <div style={{ padding: 32 }}><LoadingState rows={3} /></div>;
+  if (error && !data) return <ErrorState text={error} onRetry={reload} />;
 
   return (
     <>
@@ -49,7 +84,7 @@ export default function FocusPage() {
             <div className="state">
               <BubbleIcon name="check" size="xl" />
               <h2>Session complete</h2>
-              <p>{history[0]?.minutes} minutes of focused work, recorded to your history.</p>
+              <p>{Math.round((total - left) / 60)} minutes of focused work, recorded to your history.</p>
               <Button variant="primary" onClick={reset}>Start another</Button>
             </div>
           ) : (
@@ -76,11 +111,20 @@ export default function FocusPage() {
         <div>
           <Section title="Recent sessions">
             <Surface pad="none">
-              {history.length === 0 ? <EmptyState icon="focus" title="No sessions yet" text="Completed sessions will appear here." /> : (
-                <ul className="list divided">{history.map((h) => <li key={h.id}><Row as="div" leading={<BubbleIcon name="focus" tone="graphite" size="sm" />} title={h.label} subtitle={h.when} trailing={<span className="num muted small">{h.minutes} min</span>} /></li>)}</ul>
+              {data && data.history.length === 0 ? <EmptyState icon="focus" title="No sessions yet" text="Completed sessions will appear here." /> : (
+                <ul className="list divided">
+                  {data?.history.map((h) => (
+                    <li key={h.id}><Row as="div" leading={<BubbleIcon name="focus" tone="graphite" size="sm" />} title={h.note ?? 'Focus session'} subtitle={fmt.dateTime(h.started_at, tz)} trailing={<span className="num muted small">{minutesLabel(h.accumulated_ms / 60000)}</span>} /></li>
+                  ))}
+                </ul>
               )}
             </Surface>
           </Section>
+          {data && data.sessions > 0 && (
+            <Section title="Total">
+              <Surface><p className="num" style={{ fontSize: '1.5rem' }}>{minutesLabel(data.totalMinutes)}</p><p className="muted small">{data.sessions} sessions</p></Surface>
+            </Section>
+          )}
         </div>
       </div>
     </>

@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "test:api": "node --test server/test/api.test.mjs",
-    "seed": "node server/seed.mjs",
     "server": "node server/index.mjs"
   },
   "dependencies": {
@@ -18,6 +17,7 @@
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

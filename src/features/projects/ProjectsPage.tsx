@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCore } from '../../core/store';
-import type { Project } from '../../core/types';
+import type { Project, Task } from '../../core/types';
 import { domainName } from '../../core/domains';
 import { pct, projectProgress } from '../../core/progress';
 import { Badge, BubbleIcon, EmptyState, PageHeader, ProgressBar, Row, Surface } from '../../ui/primitives';
@@ -8,12 +8,11 @@ import { Overlay } from '../../ui/overlay';
 import { Icon } from '../../ui/Icon';
 import { fmtShort } from '../../lib/date';
 import { TaskRow, TaskDetail } from '../tasks/TaskParts';
-import type { Task } from '../../core/types';
 
-const STATUS = { active: { label: 'Active', tone: 'ok' }, planning: { label: 'Planning', tone: 'accent' }, paused: { label: 'Paused', tone: undefined } } as const;
+const STATUS: Record<string, { label: string; tone: 'ok' | 'accent' | undefined }> = { active: { label: 'Active', tone: 'ok' }, planning: { label: 'Planning', tone: 'accent' }, paused: { label: 'Paused', tone: undefined }, blocked: { label: 'Blocked', tone: 'accent' }, completed: { label: 'Completed', tone: 'ok' }, archived: { label: 'Archived', tone: undefined } };
 
 export default function ProjectsPage() {
-  const { projects, goals, tasks } = useCore();
+  const { projects, goals, tasks, milestones, progress } = useCore();
   const [open, setOpen] = useState<Project | null>(null);
   const [task, setTask] = useState<Task | null>(null);
 
@@ -26,15 +25,15 @@ export default function ProjectsPage() {
         <Surface pad="none">
           <ul className="list divided stagger">
             {projects.map((p) => {
-              const v = projectProgress(p);
-              const s = STATUS[p.status];
+              const v = projectProgress(p, progress);
+              const s = STATUS[p.status] ?? { label: p.status, tone: undefined };
               return (
                 <li key={p.id}>
                   <button type="button" className="row project-row" onClick={() => setOpen(p)}>
                     <BubbleIcon name="projects" tone={p.status === 'paused' ? 'graphite' : 'royal'} />
                     <span className="row-main">
                       <span className="row-title">{p.title}</span>
-                      <span className="row-sub">{goals.find((g) => g.id === p.goalId)?.title} · {domainName(p.domain)}</span>
+                      <span className="row-sub">{goals.find((g) => g.id === p.goal_id)?.title ?? 'No goal'} · {domainName(p.domain)}</span>
                       <span className="project-bar"><ProgressBar value={v} label={`${p.title} progress`} /></span>
                     </span>
                     <span className="project-meta"><Badge tone={s.tone}>{s.label}</Badge><span className="num small muted">{pct(v)}%</span></span>
@@ -50,20 +49,21 @@ export default function ProjectsPage() {
       <Overlay open={!!open} onClose={() => setOpen(null)} title={open?.title ?? 'Project'} variant="drawer">
         {open && (
           <div className="detail-grid">
-            <p className="muted">{open.summary}</p>
+            {open.summary && <p className="muted">{open.summary}</p>}
             <div className="caption">Milestones</div>
             <ol className="milestones">
-              {open.milestones.map((m) => (
-                <li key={m.id} data-done={m.done}>
-                  <span className="m-dot">{m.done && <Icon name="check" />}</span>
-                  <span className="row-main"><span className="row-title">{m.title}</span>{m.due && <span className="row-sub">{fmtShort(m.due)}</span>}</span>
+              {milestones.filter((m) => m.project_id === open.id).map((m) => (
+                <li key={m.id} data-done={!!m.done_at}>
+                  <span className="m-dot">{m.done_at && <Icon name="check" />}</span>
+                  <span className="row-main"><span className="row-title">{m.title}</span>{m.due_at && <span className="row-sub">{fmtShort(new Date(m.due_at))}</span>}</span>
                 </li>
               ))}
+              {milestones.filter((m) => m.project_id === open.id).length === 0 && <li><span className="muted small">No milestones yet.</span></li>}
             </ol>
             <div className="caption">Tasks</div>
             <div className="list">
-              {tasks.filter((t) => t.projectId === open.id).map((t) => <TaskRow key={t.id} task={t} onOpen={setTask} />)}
-              {!tasks.some((t) => t.projectId === open.id) && <Row as="div" title="No tasks linked yet" />}
+              {tasks.filter((t) => t.project_id === open.id).map((t) => <TaskRow key={t.id} task={t} onOpen={setTask} />)}
+              {!tasks.some((t) => t.project_id === open.id) && <Row as="div" title="No tasks linked yet" />}
             </div>
           </div>
         )}

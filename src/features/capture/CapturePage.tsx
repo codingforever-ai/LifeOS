@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useCore } from '../../core/store';
-import { Alert, BubbleIcon, Button, PageHeader, Row, Section, Surface, Textarea } from '../../ui/primitives';
+import { api } from '../../api/client';
+import { Alert, BubbleIcon, Button, PageHeader, Surface, Textarea } from '../../ui/primitives';
 import type { Tone } from '../../ui/primitives';
 import type { IconName } from '../../ui/Icon';
-import { useToast } from '../../ui/overlay';
 
 interface CaptureType { id: string; label: string; icon: IconName; tone: Tone; hint: string; soon?: boolean }
 const TYPES: CaptureType[] = [
@@ -12,27 +12,29 @@ const TYPES: CaptureType[] = [
   { id: 'idea', label: 'Idea', icon: 'idea', tone: 'lavender', hint: 'Something worth exploring' },
   { id: 'reminder', label: 'Reminder', icon: 'bell', tone: 'plum', hint: 'Remind me about…' },
   { id: 'note', label: 'Note', icon: 'doc', tone: 'slate', hint: 'Write something down' },
+  { id: 'deadline', label: 'Deadline', icon: 'flag', tone: 'plum', hint: 'Something due' },
+  { id: 'goal', label: 'Goal', icon: 'goals', tone: 'royal', hint: 'An outcome to pursue' },
+  { id: 'decision', label: 'Decision', icon: 'flag', tone: 'sand', hint: 'A choice to record' },
   { id: 'link', label: 'Link', icon: 'link', tone: 'mist', hint: 'Paste a URL', soon: true },
   { id: 'image', label: 'Image', icon: 'image', tone: 'sand', hint: 'Attach a photo', soon: true },
-  { id: 'document', label: 'Document', icon: 'doc', tone: 'graphite', hint: 'Attach a file', soon: true },
   { id: 'voice', label: 'Voice', icon: 'mic', tone: 'graphite', hint: 'Speak it', soon: true },
 ];
 
 export default function CapturePage() {
-  const { addTask } = useCore();
-  const toast = useToast();
+  const { addTask, run } = useCore();
   const [type, setType] = useState('task');
   const [text, setText] = useState('');
-  const [recent, setRecent] = useState<{ id: number; type: string; text: string }[]>([]);
   const current = TYPES.find((t) => t.id === type)!;
 
-  const save = () => {
+  const save = async () => {
     const v = text.trim();
     if (!v) return;
-    if (type === 'task') addTask(v);
-    setRecent((r) => [{ id: Date.now(), type: current.label, text: v }, ...r].slice(0, 5));
+    if (type === 'task') {
+      await addTask(v);
+    } else {
+      await run(() => api.post('/e/inbox', { kind: type, content: v }), 'Captured');
+    }
     setText('');
-    toast(type === 'task' ? 'Task added' : `${current.label} captured (preview)`);
   };
 
   return (
@@ -57,13 +59,7 @@ export default function CapturePage() {
         </div>
       </Surface>
 
-      {type !== 'task' && <div style={{ marginTop: 16 }}><Alert icon="info">Only tasks are stored in Phase 1. Other capture types preview the flow and are kept for this session only.</Alert></div>}
-
-      {recent.length > 0 && (
-        <Section title="Just captured">
-          <Surface pad="none"><ul className="list divided">{recent.map((r) => <li key={r.id}><Row as="div" title={r.text} subtitle={r.type} /></li>)}</ul></Surface>
-        </Section>
-      )}
+      {current.soon && <div style={{ marginTop: 16 }}><Alert icon="info">This capture type is coming soon. Tasks, thoughts, ideas, reminders, notes, deadlines, goals and decisions are stored now.</Alert></div>}
     </>
   );
 }

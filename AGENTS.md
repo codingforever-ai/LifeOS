@@ -2,7 +2,7 @@
 
 - Stack: Vite + React 18 + TypeScript + react-router-dom. No backend, no DB, no secrets in Phase 1.
 - Run: `docker compose -f docker-compose.base44.yml up -d` (port 3000). Checks: `npm run typecheck`, `npm run build`.
-- **No gamification, ever** (XP, levels, coins, streak rewards, quests…). Progress = goals, milestones, trends, consistency.
+- Gamification is domain-appropriate: the Academic domain preserves XP, coins, levels, streaks, achievements, boss quests. Other domains use goals, milestones, trends, consistency. Never turn all of LifeOS into a meaningless productivity leaderboard.
 - One Core model (`src/core/types.ts`): Goal → Project → Milestone → Task, plus CalendarEntry. Domains tag records with `domain`; they never define their own Task/Goal/Project/Event. Progress is *derived* (`src/core/progress.ts`) — never store a `progress` field.
 - Demo data lives only in `src/data/demo.ts`; real data replaces the `CoreProvider` store (`src/core/store.tsx`).
 - Add a module: feature folder in `src/features/`, lazy route in `src/App.tsx`, nav entry in `src/shell/nav.ts`. Add a domain: one entry in `src/core/domains.ts`.

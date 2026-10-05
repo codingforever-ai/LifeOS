@@ -1,88 +1,105 @@
-import { useCore } from '../../core/store';
+import { useApi, useCore } from '../../core/store';
 import { goalProgress, pct, projectProgress } from '../../core/progress';
-import { demoConsistency, demoWeek } from '../../data/demo';
-import { PageHeader, ProgressBar, Section, Surface } from '../../ui/primitives';
+import { PageHeader, ProgressBar, Section, Surface, LoadingState, ErrorState } from '../../ui/primitives';
 
-function PlannedVsCompleted() {
-  const { labels, planned, completed } = demoWeek;
-  const max = Math.max(...planned);
-  const H = 120;
-  return (
-    <figure className="chart" aria-label="Planned versus completed tasks over the last 7 days">
-      <svg viewBox="0 0 280 150" role="img" aria-hidden="true">
-        {labels.map((l, i) => {
-          const x = 12 + i * 38;
-          const hp = (planned[i] / max) * H;
-          const hc = (completed[i] / max) * H;
-          return (
-            <g key={l + i}>
-              <rect x={x} y={H - hp + 6} width={12} height={hp} rx={4} className="bar-plan" />
-              <rect x={x + 14} y={H - hc + 6} width={12} height={hc} rx={4} className="bar-done" />
-              <text x={x + 13} y={146} textAnchor="middle" className="axis">{l}</text>
-            </g>
-          );
-        })}
-      </svg>
-      <figcaption className="legend"><span><i className="bar-plan-key" />Planned</span><span><i className="bar-done-key" />Completed</span></figcaption>
-    </figure>
-  );
-}
-
-function FocusTrend() {
-  const v = demoWeek.focusMin;
-  const max = Math.max(...v);
-  const pts = v.map((m, i) => [8 + (i * 264) / 6, 8 + (1 - m / max) * 84] as const);
-  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  return (
-    <figure className="chart" aria-label="Focus minutes over the last 7 days">
-      <svg viewBox="0 0 280 110" aria-hidden="true">
-        <defs><linearGradient id="fx" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6" stopOpacity=".28" /><stop offset="1" stopColor="#8b5cf6" stopOpacity="0" /></linearGradient></defs>
-        <path d={`${line} L272,100 L8,100 Z`} fill="url(#fx)" />
-        <path d={line} fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === 6 ? 4 : 2.5} fill={i === 6 ? '#cdbefc' : '#a78bfa'} />)}
-      </svg>
-    </figure>
-  );
+interface ProgressData {
+  goals: Record<string, { progress: number; tasksTotal?: number; tasksDone?: number; milestonesTotal?: number; milestonesDone?: number; done?: boolean }>;
+  projects: Record<string, { progress: number; tasksTotal?: number; tasksDone?: number; done?: boolean }>;
+  milestones: Record<string, { progress: number; done?: boolean }>;
+  goalList: { id: string; title: string; status: string; domain: string; progress: number; health: { state: string } }[];
+  projectList: { id: string; title: string; status: string; domain: string; goal_id: string | null; progress: number; health: { state: string } }[];
+  planVsActual: { days: { day: string; planned: number; actual: number; focus: number }[]; summary: { planned: number; actual: number; focus: number; accuracy: number } };
 }
 
 export default function ProgressPage() {
-  const { goals, projects, tasks } = useCore();
-  const done = tasks.filter((t) => t.done).length;
-  const focusTotal = demoWeek.focusMin.reduce((a, b) => a + b, 0);
-  const planned = demoWeek.planned.reduce((a, b) => a + b, 0);
-  const completed = demoWeek.completed.reduce((a, b) => a + b, 0);
-  const active = demoConsistency.filter(Boolean).length;
+  const { goals, projects, tasks, progress } = useCore();
+  const { data, loading, error, reload } = useApi<ProgressData>('/progress');
+
+  if (loading && !data) return <div style={{ padding: 32 }}><LoadingState rows={4} /></div>;
+  if (error && !data) return <ErrorState text={error} onRetry={reload} />;
+
+  const pva = data?.planVsActual;
+  const maxBar = pva ? Math.max(1, ...pva.days.map((d) => Math.max(d.planned, d.actual))) : 1;
+  const done = tasks.filter((t) => t.done_at).length;
+  const focusTotal = pva?.summary.focus ?? 0;
+  const planned = pva?.summary.planned ?? 0;
+  const actual = pva?.summary.actual ?? 0;
 
   return (
     <>
-      <PageHeader eyebrow="Progress" title="How it’s going" subtitle="Outcomes and trends, without the noise." />
+      <PageHeader eyebrow="Progress" title="How it's going" subtitle="Outcomes and trends, derived from your records." />
       <div className="stats stagger">
-        <div><div className="stat-num num">{Math.round(focusTotal / 6) / 10}<small> h</small></div><div className="muted small">Focus this week</div></div>
-        <div><div className="stat-num num">{completed}<small> / {planned}</small></div><div className="muted small">Planned work completed</div></div>
-        <div><div className="stat-num num">{active}<small> / 28</small></div><div className="muted small">Days with activity</div></div>
-        <div><div className="stat-num num">{done}</div><div className="muted small">Tasks completed (open list)</div></div>
+        <div><div className="stat-num num">{Math.round(focusTotal / 6) / 10}<small> h</small></div><div className="muted small">Focus (14 days)</div></div>
+        <div><div className="stat-num num">{actual}<small> / {planned}</small></div><div className="muted small">Tasks done vs planned</div></div>
+        <div><div className="stat-num num">{done}</div><div className="muted small">Tasks completed</div></div>
+        <div><div className="stat-num num">{goals.length}</div><div className="muted small">Active goals</div></div>
       </div>
 
-      <div className="progress-grid">
-        <Section title="Planned vs completed"><Surface><PlannedVsCompleted /></Surface></Section>
-        <Section title="Focus time"><Surface><FocusTrend /><p className="muted small">Steadier than last week; strongest on Wednesday.</p></Surface></Section>
-      </div>
-
-      <Section title="Consistency · last 4 weeks">
-        <Surface>
-          <div className="consistency" role="img" aria-label={`Active on ${active} of the last 28 days`}>
-            {demoConsistency.map((v, i) => <i key={i} data-on={!!v} />)}
-          </div>
-          <p className="muted small" style={{ marginTop: 12 }}>You’ve shown up on {pct(active / 28)}% of days. Rest days are part of the pattern.</p>
-        </Surface>
-      </Section>
+      {pva && pva.days.length > 0 && (
+        <div className="progress-grid">
+          <Section title="Plan vs reality">
+            <Surface>
+              <figure className="chart" aria-label="Planned versus completed tasks">
+                <svg viewBox="0 0 280 150" role="img" aria-hidden="true">
+                  {pva.days.map((d, i) => {
+                    const x = 12 + i * (264 / Math.max(pva.days.length, 1));
+                    const w = 10;
+                    const hp = (d.planned / maxBar) * 120;
+                    const hc = (d.actual / maxBar) * 120;
+                    return (
+                      <g key={i}>
+                        <rect x={x} y={126 - hp} width={w} height={hp} rx={3} className="bar-plan" />
+                        <rect x={x + w + 2} y={126 - hc} width={w} height={hc} rx={3} className="bar-done" />
+                      </g>
+                    );
+                  })}
+                </svg>
+                <figcaption className="legend"><span><i className="bar-plan-key" />Planned</span><span><i className="bar-done-key" />Completed</span></figcaption>
+              </figure>
+            </Surface>
+          </Section>
+          <Section title="Focus time">
+            <Surface>
+              <figure className="chart" aria-label="Focus minutes">
+                <svg viewBox="0 0 280 110" aria-hidden="true">
+                  {pva.days.length > 1 && (() => {
+                    const maxF = Math.max(1, ...pva.days.map((d) => d.focus));
+                    const pts = pva.days.map((d, i) => [8 + (i * 264) / (pva.days.length - 1), 8 + (1 - d.focus / maxF) * 84] as const);
+                    const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+                    return <>
+                      <path d={`${line} L272,100 L8,100 Z`} fill="url(#fx)" />
+                      <path d={line} fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === pts.length - 1 ? 4 : 2.5} fill={i === pts.length - 1 ? '#cdbefc' : '#a78bfa'} />)}
+                    </>;
+                  })()}
+                  <defs><linearGradient id="fx" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6" stopOpacity=".28" /><stop offset="1" stopColor="#8b5cf6" stopOpacity="0" /></linearGradient></defs>
+                </svg>
+              </figure>
+            </Surface>
+          </Section>
+        </div>
+      )}
 
       <div className="progress-grid">
         <Section title="Goals">
-          <Surface><div className="bars">{goals.map((g) => <div key={g.id}><div className="bars-row"><span>{g.title}</span><span className="num muted">{pct(goalProgress(g, projects))}%</span></div><ProgressBar value={goalProgress(g, projects)} label={g.title} /></div>)}</div></Surface>
+          <Surface>
+            {goals.length === 0 ? <p className="muted small">No goals yet.</p> : (
+              <div className="bars">{goals.map((g) => {
+                const p = goalProgress(g, projects, progress);
+                return <div key={g.id}><div className="bars-row"><span>{g.title}</span><span className="num muted">{pct(p)}%</span></div><ProgressBar value={p} label={g.title} /></div>;
+              })}</div>
+            )}
+          </Surface>
         </Section>
         <Section title="Projects">
-          <Surface><div className="bars">{projects.map((p) => <div key={p.id}><div className="bars-row"><span>{p.title}</span><span className="num muted">{pct(projectProgress(p))}%</span></div><ProgressBar value={projectProgress(p)} label={p.title} /></div>)}</div></Surface>
+          <Surface>
+            {projects.length === 0 ? <p className="muted small">No projects yet.</p> : (
+              <div className="bars">{projects.map((p) => {
+                const v = projectProgress(p, progress);
+                return <div key={p.id}><div className="bars-row"><span>{p.title}</span><span className="num muted">{pct(v)}%</span></div><ProgressBar value={v} label={p.title} /></div>;
+              })}</div>
+            )}
+          </Surface>
         </Section>
       </div>
     </>

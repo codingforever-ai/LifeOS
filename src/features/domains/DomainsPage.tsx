@@ -1,40 +1,43 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DOMAINS } from '../../core/domains';
 import type { DomainDef } from '../../core/types';
-import { useCore } from '../../core/store';
-import { Alert, Badge, BubbleIcon, Button, PageHeader, Section } from '../../ui/primitives';
+import { useApi } from '../../core/store';
+import { Badge, BubbleIcon, Button, PageHeader, Section, Row } from '../../ui/primitives';
 import { Overlay } from '../../ui/overlay';
 
+interface DomainSummary { [key: string]: { tasksOpen: number; goals: number; projects: number } }
+interface DomainOverview { core: { tasksOpen: number; goals: number; projects: number }; [key: string]: unknown }
+
 export default function DomainsPage() {
-  const { tasks } = useCore();
+  const nav = useNavigate();
   const [open, setOpen] = useState<DomainDef | null>(null);
-  const core = DOMAINS.filter((d) => d.status === 'core');
-  const planned = DOMAINS.filter((d) => d.status === 'planned');
-  const Tile = ({ d }: { d: DomainDef }) => (
-    <button type="button" className="domain-tile" onClick={() => setOpen(d)}>
-      <BubbleIcon name={d.icon} tone={d.tone} size="lg" />
-      <span className="row-title">{d.name}</span>
-      <span className="row-sub">{d.blurb}</span>
-    </button>
-  );
-  const count = open ? tasks.filter((t) => t.domain === open.id).length : 0;
+  const { data: summary } = useApi<DomainSummary>('/domains-summary');
+  const { data: overview } = useApi<DomainOverview | null>(open ? `/domains/${open.id}/overview` : null);
 
   return (
     <>
       <PageHeader eyebrow="Domains" title="Every part of your life" subtitle="Domains share one core: the same tasks, goals, calendar and Agent." />
-      <Section title="Available"><div className="domain-grid stagger">{core.map((d) => <Tile key={d.id} d={d} />)}</div></Section>
-      <Section title="Coming to LifeOS"><div className="domain-grid stagger">{planned.map((d) => <Tile key={d.id} d={d} />)}
-        <button type="button" className="domain-tile add" onClick={() => setOpen({ id: 'custom', name: 'Custom domain', blurb: 'Create your own', icon: 'plus', tone: 'graphite', status: 'planned' })}>
-          <BubbleIcon name="plus" tone="graphite" size="lg" /><span className="row-title">Custom</span><span className="row-sub">Create your own</span>
-        </button></div>
+      <Section title="Your domains">
+        <div className="domain-grid stagger">
+          {DOMAINS.map((d) => (
+            <button key={d.id} type="button" className="domain-tile" onClick={() => nav(d.path)}>
+              <BubbleIcon name={d.icon} tone={d.tone} size="lg" />
+              <span className="row-title">{d.name}</span>
+              <span className="row-sub">{d.blurb}</span>
+              {summary && <span className="faint small">{summary[d.id]?.tasksOpen ?? 0} open tasks · {summary[d.id]?.goals ?? 0} goals</span>}
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Overlay open={!!open} onClose={() => setOpen(null)} title={open?.name ?? ''} footer={<Button onClick={() => setOpen(null)}>Close</Button>}>
-        {open && (
+        {open && overview && (
           <div className="detail-grid">
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}><BubbleIcon name={open.icon} tone={open.tone} size="xl" /><div><p>{open.blurb}</p><Badge tone={open.status === 'core' ? 'ok' : 'accent'}>{open.status === 'core' ? 'Available' : 'Planned'}</Badge></div></div>
-            {open.status === 'core' && <p className="muted small">{count} tasks are currently tagged to this domain.</p>}
-            <Alert icon="info">Domain experiences plug into the shared LifeOS core in a later phase. Nothing domain-specific is built yet.</Alert>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}><BubbleIcon name={open.icon} tone={open.tone} size="xl" /><div><p>{open.blurb}</p><Badge tone="ok">Active</Badge></div></div>
+            <Row as="div" title="Open tasks" subtitle={`${overview.core?.tasksOpen ?? 0} tasks`} />
+            <Row as="div" title="Goals" subtitle={`${overview.core?.goals ?? 0} goals`} />
+            <Row as="div" title="Projects" subtitle={`${overview.core?.projects ?? 0} projects`} />
           </div>
         )}
       </Overlay>

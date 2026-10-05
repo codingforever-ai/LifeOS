@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { CoreProvider } from './core/store';
+import { AuthProvider } from './core/auth';
+import { AuthGate } from './core/AuthGate';
 import { AppShell } from './shell/AppShell';
 import { ToastProvider } from './ui/overlay';
 import { Button, EmptyState, LoadingState } from './ui/primitives';
@@ -29,28 +31,32 @@ export function App() {
   const { pathname } = useLocation();
   useEffect(() => { document.title = `${TITLES[pathname] ?? 'LifeOS'} · LifeOS`; }, [pathname]);
   return (
-    <CoreProvider>
-      <ToastProvider>
-        <Suspense fallback={<div style={{ padding: 32 }}><LoadingState rows={3} /></div>}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route index element={<Today />} />
-              <Route path="tasks" element={<Tasks />} />
-              <Route path="calendar" element={<Calendar />} />
-              <Route path="goals" element={<Goals />} />
-              <Route path="projects" element={<Projects />} />
-              <Route path="focus" element={<Focus />} />
-              <Route path="progress" element={<Progress />} />
-              <Route path="agent" element={<Agent />} />
-              <Route path="capture" element={<Capture />} />
-              <Route path="domains" element={<Domains />} />
-              <Route path="search" element={<Search />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </Suspense>
-      </ToastProvider>
-    </CoreProvider>
+    <AuthProvider>
+      <AuthGate>
+        <CoreProvider>
+          <ToastProvider>
+            <Suspense fallback={<div style={{ padding: 32 }}><LoadingState rows={3} /></div>}>
+              <Routes>
+                <Route element={<AppShell />}>
+                  <Route index element={<Today />} />
+                  <Route path="tasks" element={<Tasks />} />
+                  <Route path="calendar" element={<Calendar />} />
+                  <Route path="goals" element={<Goals />} />
+                  <Route path="projects" element={<Projects />} />
+                  <Route path="focus" element={<Focus />} />
+                  <Route path="progress" element={<Progress />} />
+                  <Route path="agent" element={<Agent />} />
+                  <Route path="capture" element={<Capture />} />
+                  <Route path="domains" element={<Domains />} />
+                  <Route path="search" element={<Search />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="*" element={<NotFound />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </ToastProvider>
+        </CoreProvider>
+      </AuthGate>
+    </AuthProvider>
   );
 }

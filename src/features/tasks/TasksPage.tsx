@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCore } from '../../core/store';
 import type { Task } from '../../core/types';
 import { Button, EmptyState, ErrorState, LoadingState, PageHeader, Surface, Tabs } from '../../ui/primitives';
 import { Menu } from '../../ui/overlay';
 import { Icon } from '../../ui/Icon';
-import { diffDays } from '../../lib/date';
 import { TaskDetail, TaskRow } from './TaskParts';
-import { useNavigate } from 'react-router-dom';
 
 type Filter = 'open' | 'today' | 'upcoming' | 'done';
 type Sort = 'due' | 'priority' | 'title';
@@ -21,21 +20,23 @@ export default function TasksPage() {
 
   const visible = useMemo(() => {
     const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
     const f = tasks.filter((t) => {
-      if (filter === 'done') return t.done;
-      if (t.done) return false;
-      if (filter === 'today') return !!t.due && diffDays(t.due, now) <= 0;
-      if (filter === 'upcoming') return !!t.due && diffDays(t.due, now) > 0;
+      const done = !!t.done_at;
+      if (filter === 'done') return done;
+      if (done) return false;
+      if (filter === 'today') return !!t.due_at && t.due_at.slice(0, 10) <= todayKey;
+      if (filter === 'upcoming') return !!t.due_at && t.due_at.slice(0, 10) > todayKey;
       return true;
     });
     return [...f].sort((a, b) => {
       if (sort === 'priority') return PRI[a.priority] - PRI[b.priority];
       if (sort === 'title') return a.title.localeCompare(b.title);
-      return (a.due?.getTime() ?? Infinity) - (b.due?.getTime() ?? Infinity);
+      return (a.due_at ?? '9999').localeCompare(b.due_at ?? '9999');
     });
   }, [tasks, filter, sort]);
 
-  const remaining = tasks.filter((t) => !t.done).length;
+  const remaining = tasks.filter((t) => !t.done_at).length;
 
   return (
     <>
@@ -51,9 +52,9 @@ export default function TasksPage() {
       </div>
       <Surface pad="none" className="tasks-surface">
         {status === 'loading' && <div style={{ padding: 12 }}><LoadingState label="Loading tasks" /></div>}
-        {status === 'error' && <ErrorState text="We couldn’t load your tasks. Check your connection and try again." onRetry={reload} />}
+        {status === 'error' && <ErrorState text="We couldn't load your tasks. Check your connection and try again." onRetry={reload} />}
         {status === 'ready' && visible.length === 0 && (
-          <EmptyState icon="tasks" title={filter === 'done' ? 'Nothing completed yet' : 'You’re all clear'} text={filter === 'done' ? 'Completed tasks will collect here as a record of what you’ve done.' : 'No tasks match this view. Capture something new when it comes to mind.'} action={<Button onClick={() => nav('/capture')}>Capture a task</Button>} />
+          <EmptyState icon="tasks" title={filter === 'done' ? 'Nothing completed yet' : "You're all clear"} text={filter === 'done' ? "Completed tasks will collect here as a record of what you've done." : 'No tasks match this view. Capture something new when it comes to mind.'} action={<Button onClick={() => nav('/capture')}>Capture a task</Button>} />
         )}
         {status === 'ready' && visible.length > 0 && (
           <ul className="list divided stagger" key={filter + sort}>
