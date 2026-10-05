@@ -2,6 +2,7 @@ import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypt
 import { db } from './db.mjs';
 import { HttpError, uid, DEFAULT_SETTINGS, getSettings } from './crud.mjs';
 import { validTz } from './tz.mjs';
+import { googleConfigured, googleAuthUrl, exchangeCode, getGoogleUserInfo } from './google.mjs';
 
 const COOKIE = 'lifeos_session';
 const SESSION_DAYS = 30;
@@ -104,4 +105,100 @@ export function deleteAccount(user, body, res) {
   if (body?.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm', { confirm: 'Type DELETE' });
   db.prepare('DELETE FROM users WHERE id = ?').run(user.id); // cascades to every user-owned table
   setCookie(res, '', 0);
+}
+
+/* ---------- Google OAuth ---------- */
+
+const OAUTH_STATE_COOKIE = 'lifeos_oauth_state';
+const OAUTH_SENTINEL = '!oauth'; // stored in password_hash for OAuth-only users
+
+/** A short-lived cookie carries the OAuth state + redirect_uri through the Google round-trip
+ *  (Google echoes back only code+state, so we must remember the redirect_uri ourselves). */
+function setStateCookie(res, state, redirectUri) {
+  const val = `${state}|${redirectUri}`;
+  res.setHeader('Set-Cookie', `${OAUTH_STATE_COOKIE}=${encodeURIComponent(val)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600${process.env.COOKIE_SECURE === '1' ? '; Secure' : ''}`);
+}
+function readStateCookie(req) {
+  const c = req.headers.cookie ?? '';
+  const raw = (c.split(';').map((s) => s.trim()).find((s) => s.startsWith(`${OAUTH_STATE_COOKIE}=`)) ?? '').slice(OAUTH_STATE_COOKIE.length + 1);
+  if (!raw) return null;
+  try { const [state, redirectUri] = decodeURIComponent(raw).split('|'); return { state, redirectUri }; } catch { return null; }
+}
+function clearStateCookie(res) {
+  res.setHeader('Set-Cookie', `${OAUTH_STATE_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${process.env.COOKIE_SECURE === '1' ? '; Secure' : ''}`);
+}
+
+/** Validate that a redirect_uri points back to our own callback path (open-redirect defence). */
+function validRedirectUri(uri) {
+  if (typeof uri !== 'string' || !uri) return false;
+  try {
+    const u = new URL(uri);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.pathname === '/api/auth/google/callback';
+  } catch { return false; }
+}
+
+/** Begin Google OAuth: redirect the browser to Google's consent screen. */
+export function googleStart(query, req, res) {
+  if (!googleConfigured()) throw new HttpError(503, 'Google sign-in is not configured yet. Add your Google credentials to enable it.', { code: 'not_configured' });
+  const redirectUri = query.redirect_uri;
+  if (!validRedirectUri(redirectUri)) throw new HttpError(400, 'Invalid redirect URI');
+  const state = randomBytes(16).toString('hex');
+  setStateCookie(res, state, redirectUri);
+  return googleAuthUrl(redirectUri, state);
+}
+
+/**
+ * Complete Google OAuth: exchange the code, verify the profile, then find-or-link-or-create
+ * the LifeOS user and issue a session. Never duplicates accounts; never overwrites existing data.
+ */
+export async function googleFinish(query, req, res) {
+  const { code, state, error } = query ?? {};
+  if (error) throw new Error(`Google returned an error: ${error}`);
+  if (!code) throw new Error('Missing authorization code');
+  const saved = readStateCookie(req);
+  clearStateCookie(res);
+  if (!saved || !state || state !== saved.state) throw new Error('Security check failed (invalid state). Please try again.');
+
+  const redirectUri = saved.redirectUri;
+  if (!validRedirectUri(redirectUri)) throw new Error('Invalid redirect URI');
+
+  const tokens = await exchangeCode(code, redirectUri);
+  const info = await getGoogleUserInfo(tokens.access_token);
+  if (!info?.email || info.email_verified !== true && info.email_verified !== 'true') throw new Error('Google did not return a verified email');
+
+  const email = String(info.email).toLowerCase().trim();
+  const sub = String(info.sub);
+  const name = (info.name || email.split('@')[0] || 'LifeOS user').slice(0, 80);
+  const picture = info.picture ? String(info.picture).slice(0, 500) : null;
+
+  // 1. Returning Google user?
+  let u = db.prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?').get('google', sub);
+  if (!u) {
+    // 2. Existing LifeOS account with the same email — link Google to it (preserve all data).
+    u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (u) {
+      db.prepare('UPDATE users SET provider = ?, provider_id = ?, picture = COALESCE(?, picture) WHERE id = ?').run('google', sub, picture, u.id);
+      u = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
+    } else {
+      // 3. Brand-new Google user.
+      const id = uid();
+      const settings = { ...DEFAULT_SETTINGS, timezone: 'UTC' };
+      db.prepare('INSERT INTO users (id,email,name,password_hash,settings,created_at,provider,provider_id,picture) VALUES (?,?,?,?,?,?,?,?,?)').run(id, email, name, OAUTH_SENTINEL, JSON.stringify(settings), new Date().toISOString(), 'google', sub, picture);
+      u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    }
+  }
+  setCookie(res, issueSession(u.id, req));
+  return publicUser(u);
+}
+
+/** Map a raw OAuth error to a polished, user-facing message. */
+export function friendlyGoogleError(e) {
+  const m = String(e?.message || e || '');
+  if (/invalid_state|state/i.test(m)) return 'Security check failed. Please try Google sign-in again.';
+  if (/invalid_grant|expired/i.test(m)) return 'The Google session expired. Please try again.';
+  if (/redirect_uri_mismatch/i.test(m)) return 'Google sign-in is misconfigured (redirect URI). Please contact support.';
+  if (/access_denied|cancelled/i.test(m)) return 'Google sign-in was cancelled.';
+  if (/not_configured/i.test(m)) return 'Google sign-in is not configured yet. Add your Google credentials to enable it.';
+  if (/Failed to fetch|fetch failed|network|ECONNRESET|ETIMEDOUT/i.test(m)) return 'Could not reach Google. Check your connection and try again.';
+  return 'Google sign-in couldn’t be completed. Please try again.';
 }
