@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/auth';
-import { Button, Field, Input, Surface, Alert } from '../../ui/primitives';
-import { BubbleIcon } from '../../ui/icons';
+import { Button, Field, Input, Surface, Alert, BubbleIcon } from '../../ui/primitives';
 import { ApiError } from '../../api/client';
 
 export default function LoginPage() {
